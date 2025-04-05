@@ -1,0 +1,27 @@
+# Node modules
+node_modules/
+
+# Environment variables
+.env
+
+# Logs
+logs/
+*.log
+
+# Coverage directory
+coverage/
+
+# IDE files
+.idea/
+.vscode/
+
+# Build files
+dist/
+build/
+
+# Temp files
+tmp/
+.DS_Store
+
+# Uploaded files
+uploads/
