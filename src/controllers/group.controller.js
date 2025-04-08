@@ -2,10 +2,10 @@ const groupService = require('../services/group.service');
 const { asyncHandler } = require('../middlewares/error.middleware');
 
 const createGroup = asyncHandler(async (req, res) => {
-  const { projectId } = req.params;
+  const { id } = req.params;
   const groupData = req.body;
   
-  const group = await groupService.createGroup(projectId, groupData);
+  const group = await groupService.createGroup(id, groupData);
   
   res.status(201).json({
     status: 'success',
@@ -26,9 +26,9 @@ const getGroupById = asyncHandler(async (req, res) => {
 });
 
 const getProjectGroups = asyncHandler(async (req, res) => {
-  const { projectId } = req.params;
+  const { id } = req.params;
   
-  const groups = await groupService.getProjectGroups(projectId);
+  const groups = await groupService.getProjectGroups(id);
   
   res.status(200).json({
     status: 'success',
@@ -61,11 +61,11 @@ const removeMemberFromGroup = asyncHandler(async (req, res) => {
 });
 
 const createGroupByStudent = asyncHandler(async (req, res) => {
-  const { projectId } = req.params;
+  const { id } = req.params; 
   const groupData = req.body;
   const studentId = req.user.id;
   
-  const group = await groupService.createGroupByStudent(projectId, groupData, studentId);
+  const group = await groupService.createGroupByStudent(id, groupData, studentId);
   
   res.status(201).json({
     status: 'success',
@@ -75,9 +75,9 @@ const createGroupByStudent = asyncHandler(async (req, res) => {
 });
 
 const assignRemainingStudents = asyncHandler(async (req, res) => {
-  const { projectId } = req.params;
+  const { id } = req.params; 
   
-  const result = await groupService.assignRemainingStudents(projectId);
+  const result = await groupService.assignRemainingStudents(id);
   
   res.status(200).json({
     status: 'success',
