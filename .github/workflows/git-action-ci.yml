@@ -1,4 +1,4 @@
-name: CI Docker Multi-Job
+name: CI Docker Build and Push
 
 on:
   push:
@@ -7,51 +7,22 @@ on:
 
 jobs:
   build:
-    name: Build Docker Image
+    name: Build and Push Docker Image
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout du code
         uses: actions/checkout@v3
 
-      - name: Connexion à Docker Hub
+      - name: Connexion à DockerHub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build de l'image Docker
-        run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/pa-back:latest .
-
-      - name: Sauvegarder l'image comme artefact
-        run: docker save ${{ secrets.DOCKERHUB_USERNAME }}/pa-back:latest -o image.tar
-
-      - name: Upload de l'image buildée
-        uses: actions/upload-artifact@v3
+      - name: Build et push de l'image Docker
+        uses: docker/build-push-action@v5
         with:
-          name: docker-image
-          path: image.tar
-
-  push:
-    name: Push Docker Image
-    runs-on: ubuntu-latest
-    needs: build
-
-    steps:
-      - name: Télécharger l'image
-        uses: actions/download-artifact@v3
-        with:
-          name: docker-image
-          path: .
-
-      - name: Connexion à Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Push sur Docker Hub
-        run: |
-          docker load -i image.tar
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/pa-back:latest
+          context: .
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/pa-back:latest
