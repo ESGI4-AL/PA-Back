@@ -2,6 +2,7 @@ const { Promotion, User } = require('../models');
 const { AppError } = require('../middlewares/error.middleware');
 const userService = require('./user.service');
 const emailService = require('./email.service');
+const { Op } = require('sequelize');
 
 const createPromotion = async (promotionData) => {
 
@@ -13,7 +14,7 @@ const createPromotion = async (promotionData) => {
     throw new AppError('Promotion with this name already exists', 400);
   }
   const promotion = await Promotion.create(promotionData);
-  
+
   return promotion;
 };
 
@@ -55,7 +56,7 @@ const getAllPromotions = async (filters = {}) => {
         model: User,
         as: 'students',
         attributes: ['id', 'firstName', 'lastName', 'email'],
-        separate: true 
+        separate: true
       }
     ],
     distinct: true,
