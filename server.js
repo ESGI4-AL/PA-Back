@@ -21,7 +21,7 @@ const startServer = async () => {
     const forceSync = process.env.NODE_ENV === 'development' && process.env.FORCE_SYNC === 'true';
     await syncModels(forceSync);
     
-    app.listen(PORT, () => {
+    app.listen(PORT, '0.0.0.0', () => {
       console.log(`Server running on port ${PORT}`);
       console.log(`Environment: ${process.env.NODE_ENV}`);
     });
