@@ -204,12 +204,49 @@ const getPromotionStudents = async (promotionId, filters = {}) => {
   };
 };
 
+const updateStudentInPromotion = async (promotionId, studentId, updateData) => {
+  const promotion = await Promotion.findByPk(promotionId);
+  if (!promotion) {
+    throw new ApiError(404, 'Promotion not found');
+  }
+
+  const student = await User.findOne({
+    where: {
+      id: studentId,
+      promotionId: promotionId,
+      role: 'student'
+    }
+  });
+
+  if (!student) {
+    throw new ApiError(404, 'Student not found in this promotion');
+  }
+
+  const allowedFields = ['firstName', 'lastName', 'email'];
+  const sanitizedData = {};
+
+  for (const field of allowedFields) {
+    if (updateData[field] !== undefined) {
+      sanitizedData[field] = updateData[field];
+    }
+  }
+
+  await student.update(sanitizedData);
+
+  const updatedStudent = await User.findByPk(studentId, {
+    attributes: ['id', 'firstName', 'lastName', 'email', 'isActive']
+  });
+
+  return updatedStudent;
+};
+
 module.exports = {
   createPromotion,
   getPromotionById,
   getAllPromotions,
   updatePromotion,
   deletePromotion,
+  updateStudentInPromotion,
   addStudentToPromotion,
   addStudentsToPromotionFromFile,
   removeStudentFromPromotion,
