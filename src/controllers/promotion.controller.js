@@ -1,6 +1,7 @@
 const promotionService = require('../services/promotion.service');
 const userService = require('../services/user.service');
 const { asyncHandler } = require('../middlewares/error.middleware');
+const logger = require('../utils/logger');
 
 const createPromotion = asyncHandler(async (req, res) => {
   const promotionData = req.body;
@@ -83,34 +84,55 @@ const addStudentToPromotion = asyncHandler(async (req, res) => {
 
 const importStudentsToPromotion = asyncHandler(async (req, res) => {
   const { id } = req.params;
+
+  if (!req.file) {
+    logger.warn(`Aucun fichier reçu pour la promotion ${id}`);
+    return res.status(400).json({
+      status: 'error',
+      message: 'Aucun fichier reçu'
+    });
+  }
+
   const { file } = req;
-  
-  if (!file) {
-    return res.status(400).json({
-      status: 'error',
-      message: 'No file uploaded'
-    });
-  }
-  
-  const fileType = file.originalname.endsWith('.csv') ? 'csv' : 
-                  file.originalname.endsWith('.json') ? 'json' : null;
-  
+
+  logger.info(`Import lancé pour promo ${id}`);
+  logger.info(`Fichier reçu : ${file.originalname}`);
+
+  const fileType = file.originalname.endsWith('.csv') ? 'csv' :
+                   file.originalname.endsWith('.json') ? 'json' : null;
+
   if (!fileType) {
+    logger.warn(`Format non supporté : ${file.originalname}`);
     return res.status(400).json({
       status: 'error',
-      message: 'Unsupported file format. Please upload CSV or JSON file'
+      message: 'Format de fichier non supporté. Utilisez un fichier CSV ou JSON.'
     });
   }
-  
-  const parsedStudents = await userService.parseImportFile(file, fileType);
-  
-  const result = await promotionService.addStudentsToPromotionFromFile(id, parsedStudents);
-  
-  res.status(200).json({
-    status: 'success',
-    message: `${result.created.length} students created, ${result.updated.length} students updated, ${result.failed.length} students failed`,
-    data: result
-  });
+
+  try {
+    logger.info(`📥 Parsing du fichier en cours... (type : ${fileType})`);
+    const parsedStudents = await userService.parseImportFile(file, fileType);
+    logger.info(`✅ Parsing terminé. Étudiants extraits : ${parsedStudents.length}`);
+    logger.debug(`📦 Contenu extrait : ${JSON.stringify(parsedStudents, null, 2)}`);
+
+    logger.info(`📤 Ajout des étudiants à la promotion ${id}...`);
+    const result = await promotionService.addStudentsToPromotionFromFile(id, parsedStudents);
+
+    logger.info(`✅ Import terminé : ${result.created.length} créés, ${result.updated.length} mis à jour, ${result.failed.length} échoués`);
+
+    res.status(200).json({
+      status: 'success',
+      message: `${result.created.length} students created, ${result.updated.length} updated, ${result.failed.length} failed`,
+      data: result
+    });
+
+  } catch (err) {
+    logger.error(`❌ Erreur lors de l'import : ${err.message}`, err);
+    res.status(500).json({
+      status: 'error',
+      message: 'Erreur lors de l’import des étudiants'
+    });
+  }
 });
 
 const removeStudentFromPromotion = asyncHandler(async (req, res) => {

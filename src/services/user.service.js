@@ -2,6 +2,7 @@ const { Op } = require('sequelize');
 const bcrypt = require('bcrypt');
 const { User, Promotion, Project, Group, Grade } = require('../models');
 const { AppError } = require('../middlewares/error.middleware');
+const fs = require('fs');
 const emailService = require('./email.service');
 
 //random password generator for user
@@ -104,40 +105,45 @@ const importUsers = async (usersData, promotionId) => {
 //pars e import file (CSV or JSON)
 const parseImportFile = async (file, fileType) => {
   try {
-    let usersData = [];
-    
+    if (!file || !file.path) {
+      throw new AppError('Fichier manquant ou invalide', 400);
+    }
+
+    const usersData = [];
+
     if (fileType === 'csv') {
-      const csvContent = file.buffer.toString('utf8');
-      const rows = csvContent.split('\n');
-      const headers = rows[0].split(',').map(header => header.trim());
-      
+      const csvContent = fs.readFileSync(file.path, 'utf-8');
+      const rows = csvContent.trim().split(/\r?\n/);
+      const headers = rows[0].split(',').map(h => h.trim());
+
       for (let i = 1; i < rows.length; i++) {
-        if (!rows[i].trim()) continue;
-        
-        const values = rows[i].split(',').map(value => value.trim());
-        const userData = {};
-        
+        const values = rows[i].split(',').map(v => v.trim());
+        if (values.length !== headers.length) continue; // ligne incomplète
+
+        const user = {};
         headers.forEach((header, index) => {
-          userData[header] = values[index];
+          user[header] = values[index];
         });
-        
-        usersData.push(userData);
+
+        usersData.push(user);
       }
     } else if (fileType === 'json') {
-      const jsonContent = file.buffer.toString('utf8');
-      usersData = JSON.parse(jsonContent);
-      
-      if (!Array.isArray(usersData)) {
-        usersData = [usersData];
-      }
+      const jsonContent = fs.readFileSync(file.path, 'utf-8');
+      let parsed = JSON.parse(jsonContent);
+      usersData.push(...(Array.isArray(parsed) ? parsed : [parsed]));
     } else {
-      throw new AppError('Unsupported file format', 400);
+      throw new AppError('Format de fichier non supporté', 400);
     }
-    
+
     return usersData;
+
   } catch (error) {
     throw new AppError(`Failed to parse file: ${error.message}`, 400);
   }
+};
+
+module.exports = {
+  parseImportFile
 };
 
 const getUserById = async (id) => {

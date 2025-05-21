@@ -14,7 +14,7 @@ const logger = createLogger({
   transports: [
     new transports.Console({
       format: combine(
-        colorize(),
+        colorize(), 
         timestamp(),
         logFormat
       )

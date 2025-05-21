@@ -18,23 +18,25 @@ const storage = multer.diskStorage({
 
 const fileFilter = (req, file, cb) => {
   const allowedMimeTypes = [
-    'application/zip',
-    'application/x-zip-compressed',
-    'application/x-7z-compressed',
-    'application/x-rar-compressed',
-    'application/octet-stream',
-    'application/pdf',
-    'text/plain',
-    'text/markdown',
-    'text/html',
-    'text/css',
-    'text/javascript',
-    'application/json',
-    'application/xml',
-    'image/jpeg',
-    'image/png',
-    'image/gif'
-  ];
+  'application/zip',
+  'application/x-zip-compressed',
+  'application/x-7z-compressed',
+  'application/x-rar-compressed',
+  'application/octet-stream',
+  'application/pdf',
+  'text/plain',
+  'text/markdown',
+  'text/html',
+  'text/css',
+  'text/javascript',
+  'application/json',
+  'application/xml',
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'text/csv',                    
+  'application/vnd.ms-excel'     
+]; 
   
   if (allowedMimeTypes.includes(file.mimetype)) {
     cb(null, true);
