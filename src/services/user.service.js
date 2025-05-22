@@ -5,38 +5,54 @@ const { AppError } = require('../middlewares/error.middleware');
 const fs = require('fs');
 const emailService = require('./email.service');
 
-//random password generator for user
 const generateRandomPassword = () => {
   return Math.random().toString(36).slice(-10);
 };
 
 //create user, only teacher can do that
 const createUser = async (userData) => {
-  //mail already exists ?
-  const existingUser = await User.findOne({ where: { email: userData.email } });
+  console.log('Creating user with data:', { email: userData.email, role: userData.role });
   
+  const existingUser = await User.findOne({ where: { email: userData.email } });
+     
   if (existingUser) {
-    //is user alrrady exist,update information
+    console.log('User already exists, updating if needed');
     if (userData.promotionId && userData.promotionId !== existingUser.promotionId) {
       existingUser.promotionId = userData.promotionId;
       await existingUser.save();
     }
     return existingUser;
   }
-  
+     
+  let temporaryPassword = null;
   if (!userData.password) {
-    userData.password = generateRandomPassword();
+    temporaryPassword = generateRandomPassword();
+    userData.password = temporaryPassword;
+    console.log('Generated temporary password:', temporaryPassword);
   }
-  
+     
   const user = await User.create(userData);
-  
-  //send welcome email with connexion information
+  console.log('User created successfully:', { id: user.id, email: user.email, role: user.role });
+     
   try {
-    await emailService.sendWelcomeEmail(user);
+    console.log('Attempting to send email...');
+    console.log('User role:', user.role);
+    console.log('Has temporary password:', !!temporaryPassword);
+    
+    if (user.role === 'student' && temporaryPassword) {
+      console.log('Sending email with password to student:', user.email);
+      await emailService.sendWelcomeEmailWithPassword(user, temporaryPassword);
+      console.log('Email with password sent successfully to:', user.email);
+    } else {
+      console.log('Sending standard welcome email to:', user.email);
+      await emailService.sendWelcomeEmail(user);
+      console.log('Standard email sent successfully to:', user.email);
+    }
   } catch (error) {
     console.error('Failed to send welcome email:', error);
+    console.error('Error details:', error.message);
   }
-  
+     
   return user;
 };
 
