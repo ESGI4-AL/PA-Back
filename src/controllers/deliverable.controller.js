@@ -81,7 +81,46 @@ const submitDeliverable = asyncHandler(async (req, res) => {
     fileUrl = req.file.firebaseUrl;
   }
 
-  const submission = await deliverableService.submitDeliverable(id, submissionData, groupId, fileUrl);
+  const deliverable = await deliverableService.getDeliverableById(id);
+
+  if (!deliverable) {
+    return res.status(404).json({ message: 'Livrable non trouvé.' });
+  }
+
+  if (deliverable.type === 'archive') {
+    if (!fileUrl || !req.file || !req.file.originalname) {
+      return res.status(400).json({ message: 'Un fichier est requis pour ce livrable de type archive.' });
+    }
+
+    const allowedExtensions = ['.zip', '.tar.gz'];
+    const originalName = req.file.originalname.toLowerCase();
+    const isValidExtension = allowedExtensions.some(ext => originalName.endsWith(ext));
+
+    if (!isValidExtension) {
+      return res.status(400).json({
+        message: 'Le fichier doit être une archive au format .zip ou .tar.gz.'
+      });
+    }
+  } else if (deliverable.type === 'git') {
+    const { gitUrl } = submissionData;
+
+    const gitUrlRegex = /^https:\/\/(github|gitlab|bitbucket)\.com\/[^/]+\/[^/]+/;
+
+    if (!gitUrl || !gitUrlRegex.test(gitUrl)) {
+      return res.status(400).json({
+        message: 'Lien Git invalide ou manquant. Il doit pointer vers un dépôt GitHub, GitLab ou Bitbucket.'
+      });
+    }
+
+    submissionData.gitUrl = gitUrl;
+  }
+
+  const submission = await deliverableService.submitDeliverable(
+    id,
+    submissionData,
+    groupId,
+    fileUrl
+  );
 
   res.status(200).json({
     status: 'success',
