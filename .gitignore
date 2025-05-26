@@ -25,3 +25,6 @@ tmp/
 
 # Uploaded files
 uploads/
+
+# Config firebase
+/config/firebase-key.json
