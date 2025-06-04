@@ -1,0 +1,1 @@
+The goal of this repo is display a message.

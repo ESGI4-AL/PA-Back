@@ -1,0 +1,50 @@
+{
+  "max_similarity_overall": 1.0000000000000002,
+  "comparisons": [
+    {
+      "group": [
+        "projet6",
+        "projet1",
+        "projet4"
+      ],
+      "max_similarity": 1.0000000000000002,
+      "status": "triche très probable"
+    },
+    {
+      "project": "projet2",
+      "status": "non suspecté",
+      "excluded_after": 8,
+      "reason": "Peu de similarité avec 75% des autres projets (< 0.5)"
+    },
+    {
+      "project": "projet3",
+      "status": "non suspecté",
+      "excluded_after": 8,
+      "reason": "Peu de similarité avec 75% des autres projets (< 0.5)"
+    },
+    {
+      "project": "projet5",
+      "status": "non suspecté",
+      "excluded_after": 8,
+      "reason": "Peu de similarité avec 75% des autres projets (< 0.5)"
+    },
+    {
+      "project": "projet7",
+      "status": "non suspecté",
+      "excluded_after": 6,
+      "reason": "Peu de similarité avec 75% des autres projets (< 0.5)"
+    },
+    {
+      "project": "projet8",
+      "status": "non suspecté",
+      "excluded_after": 8,
+      "reason": "Peu de similarité avec 75% des autres projets (< 0.5)"
+    },
+    {
+      "project": "projet9",
+      "status": "non suspecté",
+      "excluded_after": 8,
+      "reason": "Peu de similarité avec 75% des autres projets (< 0.5)"
+    }
+  ]
+}

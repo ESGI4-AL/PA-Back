@@ -1,0 +1,1 @@
+Dire bonjour en n'importe quel langue ez mode !

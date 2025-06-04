@@ -1,0 +1,1 @@
+The goal of this repo is to display a greeting message.
