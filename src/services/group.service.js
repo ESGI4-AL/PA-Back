@@ -411,6 +411,21 @@ const assignRemainingStudents = async (projectId) => {
   };
 };
 
+const getGroupProject = async (groupId) => {
+  const group = await Group.findByPk(groupId, {
+    include: {
+      model: Project,
+      as: 'project'
+    }
+  });
+
+  if (!group || !group.project) {
+    throw new Error("Projet non trouvé pour ce groupe.");
+  }
+
+  return group.project;
+};
+
 module.exports = {
   createGroup,
   getGroupById,
@@ -418,5 +433,6 @@ module.exports = {
   addMemberToGroup,
   removeMemberFromGroup,
   createGroupByStudent,
-  assignRemainingStudents
+  assignRemainingStudents,
+  getGroupProject
 };

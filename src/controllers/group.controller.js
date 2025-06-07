@@ -1,5 +1,6 @@
 const groupService = require('../services/group.service');
 const { asyncHandler } = require('../middlewares/error.middleware');
+const { Group, Project } = require('../models');
 
 const createGroup = asyncHandler(async (req, res) => {
   const { id } = req.params;
@@ -86,6 +87,17 @@ const assignRemainingStudents = asyncHandler(async (req, res) => {
   });
 });
 
+const getGroupProject = asyncHandler(async (req, res) => {
+  const { groupId } = req.params;
+
+  const project = await groupService.getGroupProject(groupId);
+
+  res.status(200).json({
+    status: 'success',
+    data: project
+  });
+});
+
 module.exports = {
   createGroup,
   getGroupById,
@@ -93,5 +105,6 @@ module.exports = {
   addMemberToGroup,
   removeMemberFromGroup,
   createGroupByStudent,
-  assignRemainingStudents
+  assignRemainingStudents,
+  getGroupProject
 };
