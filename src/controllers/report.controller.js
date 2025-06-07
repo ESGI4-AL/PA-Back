@@ -116,6 +116,24 @@ const getProjectReports = asyncHandler(async (req, res) => {
   });
 });
 
+const uploadReport = asyncHandler(async (req, res) => {
+  const { id: projectId, groupId } = req.params;
+
+  if (!req.file || !req.file.firebaseUrl) {
+    return res.status(400).json({ message: 'Aucun fichier PDF reçu.' });
+  }
+
+  const fileUrl = req.file.firebaseUrl;
+
+  await Group.update({ reportUrl: fileUrl }, { where: { id: groupId } });
+
+  res.status(200).json({
+    status: 'success',
+    message: 'Rapport envoyé avec succès.',
+    data: { url: fileUrl }
+  });
+});
+
 module.exports = {
   createReport,
   getReportById,
@@ -125,5 +143,6 @@ module.exports = {
   updateReportSection,
   deleteReportSection,
   reorderReportSections,
-  getProjectReports
+  getProjectReports,
+  uploadReport
 };

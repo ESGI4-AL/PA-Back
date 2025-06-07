@@ -8,7 +8,7 @@ const presentationController = require('../controllers/presentation.controller')
 const evaluationController = require('../controllers/evaluation.controller');
 const { projectValidationRules, validate } = require('../middlewares/validation.middleware');
 const { verifyToken, isTeacher } = require('../middlewares/auth.middleware');
-
+const uploadFirebase = require('../middlewares/uploadFirebase');
 
 router.use(verifyToken);
 
@@ -52,5 +52,9 @@ router.get('/:id/evaluation-criteria', evaluationController.getProjectEvaluation
 router.get('/:id/grades', evaluationController.getProjectGrades);
 router.post('/:id/publish-grades', evaluationController.publishProjectGrades);
 router.get('/:id/groups/:groupId/final-grade', evaluationController.calculateGroupFinalGrade);
+router.put('/:id/deliverables/:deliverableId', projectController.updateDeliverable);
+router.get('/:id/groups/:groupId/report', reportController.getGroupReport);
+router.post('/:id/groups/:groupId/report/upload',uploadFirebase,reportController.uploadReport);
+
 
 module.exports = router;

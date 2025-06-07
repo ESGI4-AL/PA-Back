@@ -9,9 +9,13 @@ const createDeliverable = async (projectId, deliverableData, teacherId) => {
   const project = await Project.findByPk(projectId);
 
   if (!project) throw new AppError('Project not found', 404);
-  if (project.teacherId !== teacherId) throw new AppError('You are not authorized to add deliverables to this project', 403);
+  if (project.teacherId !== teacherId)
+    throw new AppError('You are not authorized to add deliverables to this project', 403);
 
-  const deliverable = await Deliverable.create({ ...deliverableData, projectId });
+  const deliverable = await Deliverable.create({
+    ...deliverableData,
+    projectId
+  });
 
   if (deliverableData.rules?.length) {
     const rules = [];

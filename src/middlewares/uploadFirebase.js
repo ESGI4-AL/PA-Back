@@ -9,7 +9,7 @@ const storage = multer.memoryStorage();
 const upload = multer({
   storage,
   fileFilter: (req, file, cb) => {
-    const allowed = ['.zip', '.tar.gz'];
+    const allowed = ['.zip', '.tar.gz','.pdf'];
     const ext = path.extname(file.originalname);
     logger.info(`🧪 Extension du fichier reçu : ${ext}`);
     if (!allowed.includes(ext)) {

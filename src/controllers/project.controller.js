@@ -1,6 +1,8 @@
 const projectService = require('../services/project.service');
 const { asyncHandler } = require('../middlewares/error.middleware');
 
+const logger = require('../utils/logger');
+
 const createProject = asyncHandler(async (req, res) => {
   const projectData = req.body;
   const teacherId = req.user.id;
@@ -110,6 +112,27 @@ const generateRandomGroups = asyncHandler(async (req, res) => {
   });
 });
 
+const updateDeliverable = asyncHandler(async (req, res) => {
+  const { id: projectId, deliverableId } = req.params;
+  const updates = req.body;
+  const teacherId = req.user.id;
+
+  logger.info('update receive : ', updates)
+
+  const updatedDeliverable = await projectService.updateDeliverable(
+    projectId,
+    deliverableId,
+    updates,
+    teacherId
+  );
+
+  res.status(200).json({
+    status: 'success',
+    message: 'Deliverable updated successfully',
+    data: updatedDeliverable
+  });
+});
+
 module.exports = {
   createProject,
   updateProjectStatus,
@@ -118,5 +141,6 @@ module.exports = {
   updateProject,
   deleteProject,
   configureGroupFormation,
-  generateRandomGroups
+  generateRandomGroups,
+  updateDeliverable
 };

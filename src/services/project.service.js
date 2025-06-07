@@ -328,6 +328,33 @@ const generateRandomGroups = async (projectId, teacherId) => {
   return groups;
 };
 
+const updateDeliverable = async (projectId, deliverableId, updates, teacherId) => {
+  const project = await Project.findByPk(projectId);
+
+  if (!project) {
+    throw new AppError('Project not found', 404);
+  }
+
+  if (project.teacherId !== teacherId) {
+    throw new AppError('Unauthorized to update this deliverable', 403);
+  }
+
+  const deliverable = await Deliverable.findOne({
+    where: {
+      id: deliverableId,
+      projectId
+    }
+  });
+
+  if (!deliverable) {
+    throw new AppError('Deliverable not found', 404);
+  }
+
+  await deliverable.update(updates);
+
+  return deliverable;
+};
+
 module.exports = {
   createProject,
   updateProjectStatus,
@@ -337,5 +364,6 @@ module.exports = {
   deleteProject,
   configureGroupFormation,
   generateRandomGroups,
-  notifyStudentsAboutProject
+  notifyStudentsAboutProject,
+  updateDeliverable
 };
