@@ -1,4 +1,4 @@
-const admin = require('firebase-admin');
+/*const admin = require('firebase-admin');
 const serviceAccount = require('../config/firebase-key.json');
 
 if (!admin.apps.length) {
@@ -10,4 +10,4 @@ if (!admin.apps.length) {
 
 const bucket = admin.storage().bucket();
 
-module.exports = { admin, bucket };
+module.exports = { admin, bucket };*/

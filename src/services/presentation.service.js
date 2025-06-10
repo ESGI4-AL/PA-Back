@@ -394,10 +394,36 @@ const generateAttendanceSheetPDF = async (projectId, teacherId, sortBy = 'group'
   });
 };
 
+const deletePresentationSchedule = async (projectId, teacherId) => {
+  const project = await Project.findByPk(projectId);
+  
+  if (!project) {
+    throw new AppError('Project not found', 404);
+  }
+  
+  if (project.teacherId !== teacherId) {
+    throw new AppError('You are not authorized to delete schedules for this project', 403);
+  }
+  
+  await PresentationSchedule.destroy({
+    where: { projectId }
+  });
+  
+  return { message: 'Planning supprimé avec succès' };
+};
+
+const updatePresentationSchedule = async (projectId, scheduleData, teacherId) => {
+  await deletePresentationSchedule(projectId, teacherId);
+  
+  return await createPresentationSchedule(projectId, scheduleData, teacherId);
+};
+
 module.exports = {
   createPresentationSchedule,
   reorderPresentationSchedule,
   getProjectPresentationSchedule,
   generateSchedulePDF,
-  generateAttendanceSheetPDF
+  generateAttendanceSheetPDF,
+  deletePresentationSchedule,
+  updatePresentationSchedule
 };
