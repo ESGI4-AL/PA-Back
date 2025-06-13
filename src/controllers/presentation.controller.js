@@ -2,9 +2,11 @@ const presentationService = require('../services/presentation.service');
 const { asyncHandler } = require('../middlewares/error.middleware');
 
 const createPresentationSchedule = asyncHandler(async (req, res) => {
-  const { projectId } = req.params;
+  const { id: projectId } = req.params;
   const scheduleData = req.body;
   const teacherId = req.user.id;
+  
+  console.log('📡 Controller - projectId:', projectId, 'teacherId:', teacherId);
   
   const schedule = await presentationService.createPresentationSchedule(projectId, scheduleData, teacherId);
   
@@ -16,7 +18,8 @@ const createPresentationSchedule = asyncHandler(async (req, res) => {
 });
 
 const reorderPresentationSchedule = asyncHandler(async (req, res) => {
-  const { projectId } = req.params;
+
+  const { id: projectId } = req.params;
   const { groupOrder } = req.body;
   const teacherId = req.user.id;
   
@@ -30,7 +33,8 @@ const reorderPresentationSchedule = asyncHandler(async (req, res) => {
 });
 
 const getProjectPresentationSchedule = asyncHandler(async (req, res) => {
-  const { projectId } = req.params;
+
+  const { id: projectId } = req.params;
   
   const schedules = await presentationService.getProjectPresentationSchedule(projectId);
   
@@ -41,7 +45,8 @@ const getProjectPresentationSchedule = asyncHandler(async (req, res) => {
 });
 
 const generateSchedulePDF = asyncHandler(async (req, res) => {
-  const { projectId } = req.params;
+
+  const { id: projectId } = req.params;
   const teacherId = req.user.id;
   
   const result = await presentationService.generateSchedulePDF(projectId, teacherId);
@@ -57,7 +62,8 @@ const generateSchedulePDF = asyncHandler(async (req, res) => {
 });
 
 const generateAttendanceSheetPDF = asyncHandler(async (req, res) => {
-  const { projectId } = req.params;
+
+  const { id: projectId } = req.params;
   const { sortBy } = req.query;
   const teacherId = req.user.id;
   
@@ -73,10 +79,38 @@ const generateAttendanceSheetPDF = asyncHandler(async (req, res) => {
   });
 });
 
+const deletePresentationSchedule = asyncHandler(async (req, res) => {
+  const { id: projectId } = req.params;
+  const teacherId = req.user.id;
+  
+  await presentationService.deletePresentationSchedule(projectId, teacherId);
+  
+  res.status(200).json({
+    status: 'success',
+    message: 'Planning de soutenances supprimé avec succès'
+  });
+});
+
+const updatePresentationSchedule = asyncHandler(async (req, res) => {
+  const { id: projectId } = req.params;
+  const scheduleData = req.body;
+  const teacherId = req.user.id;
+  
+  const result = await presentationService.updatePresentationSchedule(projectId, scheduleData, teacherId);
+  
+  res.status(200).json({
+    status: 'success',
+    message: 'Planning de soutenances modifié avec succès',
+    data: result
+  });
+});
+
 module.exports = {
   createPresentationSchedule,
   reorderPresentationSchedule,
   getProjectPresentationSchedule,
   generateSchedulePDF,
-  generateAttendanceSheetPDF
+  generateAttendanceSheetPDF,
+  deletePresentationSchedule,
+  updatePresentationSchedule
 };
