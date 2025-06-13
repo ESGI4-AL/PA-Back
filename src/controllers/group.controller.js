@@ -98,6 +98,53 @@ const getGroupProject = asyncHandler(async (req, res) => {
   });
 });
 
+const deleteGroup = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const isTeacher = req.user.role === 'teacher';
+  
+  const result = await groupService.deleteGroup(id, isTeacher);
+  
+  res.status(200).json({
+    status: 'success',
+    message: result.message || 'Group deleted successfully'
+  });
+});
+
+const updateGroup = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const updateData = req.body;
+  const isTeacher = req.user.role === 'teacher';
+  
+  const updatedGroup = await groupService.updateGroup(id, updateData, isTeacher);
+  
+  res.status(200).json({
+    status: 'success',
+    message: 'Group updated successfully',
+    data: updatedGroup
+  });
+});
+
+// Ajoutez ceci dans votre controllers/group.controller.js
+const getPromotionStudents = async (req, res, next) => {
+  try {
+    const { promotionId } = req.params;
+    
+    const students = await groupService.getPromotionStudents(promotionId);
+    
+    res.status(200).json({
+      success: true,
+      data: {
+        students: students
+      },
+      message: `${students.length} étudiants trouvés dans la promotion`
+    });
+    
+  } catch (error) {
+    console.error('❌ Erreur getPromotionStudents controller:', error);
+    next(error);
+  }
+};
+
 module.exports = {
   createGroup,
   getGroupById,
@@ -106,5 +153,8 @@ module.exports = {
   removeMemberFromGroup,
   createGroupByStudent,
   assignRemainingStudents,
-  getGroupProject
+  getGroupProject,
+  deleteGroup,
+  updateGroup,
+  getPromotionStudents
 };
