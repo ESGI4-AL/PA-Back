@@ -18,6 +18,8 @@ router.get('/:id', projectController.getProjectById);
 //handle group
 router.get('/:id/groups', groupController.getProjectGroups);
 router.post('/:id/groups/student', groupController.createGroupByStudent);
+router.get('/promotions/:promotionId/students', groupController.getPromotionStudents);
+
 
 //for livrable
 router.get('/:id/deliverables', deliverableController.getProjectDeliverables);

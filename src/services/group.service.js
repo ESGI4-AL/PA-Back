@@ -1,8 +1,31 @@
 const { Group, User, Project, Promotion } = require('../models');
 const { AppError } = require('../middlewares/error.middleware');
+const { Op } = require('sequelize');
 const emailService = require('./email.service');
 
-//create a new group manually by a teacher
+const getPromotionStudents = async (promotionId) => {
+  console.log('🔍 Service - Récupération des étudiants pour la promotion:', promotionId);
+  
+  const promotion = await Promotion.findByPk(promotionId);
+  if (!promotion) {
+    throw new AppError('Promotion not found', 404);
+  }
+  
+  const students = await User.findAll({
+    where: {
+      promotionId: promotionId,
+      role: 'student',
+      isActive: true
+    },
+    attributes: ['id', 'firstName', 'lastName', 'email', 'promotionId'],
+    order: [['lastName', 'ASC'], ['firstName', 'ASC']]
+  });
+  
+  console.log('✅ Service - Étudiants trouvés:', students.length);
+  
+  return students;
+};
+
 const createGroup = async (projectId, groupData) => {
   const project = await Project.findByPk(projectId);
   
@@ -315,9 +338,12 @@ const assignRemainingStudents = async (projectId) => {
     throw new AppError('Project not found', 404);
   }
   
-  if (project.groupFormationMethod !== 'free') {
-    throw new AppError('Project does not allow free group formation', 400);
+  if (project.groupFormationMethod === 'automatic') {
+    throw new AppError('This project uses automatic group formation. Use the dedicated automatic assignment feature instead.', 400);
   }
+  
+  console.log(`🎯 Début assignation pour projet: ${project.name} (méthode: ${project.groupFormationMethod})`);
+  console.log(`📏 Taille groupes: ${project.minGroupSize}-${project.maxGroupSize} étudiants`);
   
   const allStudents = await User.findAll({
     where: { 
@@ -326,6 +352,8 @@ const assignRemainingStudents = async (projectId) => {
       isActive: true
     }
   });
+  
+  console.log(`👥 Total étudiants dans la promotion: ${allStudents.length}`);
   
   const groups = await Group.findAll({
     where: { projectId },
@@ -337,6 +365,8 @@ const assignRemainingStudents = async (projectId) => {
     ]
   });
   
+  console.log(`📊 Groupes existants: ${groups.length}`);
+  
   const assignedStudentIds = new Set();
   groups.forEach(group => {
     group.members.forEach(member => {
@@ -346,54 +376,160 @@ const assignRemainingStudents = async (projectId) => {
   
   const unassignedStudents = allStudents.filter(student => !assignedStudentIds.has(student.id));
   
+  console.log(`📋 Étudiants non assignés: ${unassignedStudents.length}`);
+  
   if (unassignedStudents.length === 0) {
-    return { message: 'All students are already assigned to groups', groups };
+    return { 
+      message: 'Tous les étudiants sont déjà assignés à des groupes', 
+      groups: groups,
+      newGroups: [],
+      updatedGroups: [],
+      totalAssigned: 0,
+      groupsCreated: 0,
+      groupsUpdated: 0
+    };
   }
   
-  for (let i = unassignedStudents.length - 1; i > 0; i--) {
+  const shuffledStudents = [...unassignedStudents];
+  for (let i = shuffledStudents.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [unassignedStudents[i], unassignedStudents[j]] = [unassignedStudents[j], unassignedStudents[i]];
+    [shuffledStudents[i], shuffledStudents[j]] = [shuffledStudents[j], shuffledStudents[i]];
   }
   
-  groups.sort((a, b) => a.members.length - b.members.length);
+  console.log('🔄 Étudiants mélangés:', shuffledStudents.map(s => `${s.firstName} ${s.lastName}`));
   
+  const sortedGroups = groups.sort((a, b) => a.members.length - b.members.length);
+  
+  const updatedGroups = [];
   const newGroups = [];
   let studentIndex = 0;
   
-  for (const group of groups) {
-    while (group.members.length < project.maxGroupSize && studentIndex < unassignedStudents.length) {
-      await group.addMember(unassignedStudents[studentIndex]);
+  console.log('📊 Phase 1: Compléter les groupes existants...');
+  for (const group of sortedGroups) {
+    if (studentIndex >= shuffledStudents.length) break;
+    
+    const currentMemberCount = group.members.length;
+    const availableSlots = project.maxGroupSize - currentMemberCount;
+    
+    if (availableSlots > 0) {
+      const studentsToAdd = [];
+      const maxToAdd = Math.min(availableSlots, shuffledStudents.length - studentIndex);
       
-      try {
-        await emailService.sendGroupAssignmentNotification(unassignedStudents[studentIndex], group, project);
-      } catch (error) {
-        console.error(`Failed to send notification to ${unassignedStudents[studentIndex].email}:`, error);
+      for (let i = 0; i < maxToAdd; i++) {
+        studentsToAdd.push(shuffledStudents[studentIndex]);
+        studentIndex++;
       }
       
-      studentIndex++;
+      if (studentsToAdd.length > 0) {
+        console.log(`👥 Ajout de ${studentsToAdd.length} étudiants au groupe "${group.name}" (${currentMemberCount} -> ${currentMemberCount + studentsToAdd.length})`);
+        await group.addMembers(studentsToAdd);
+        updatedGroups.push(group);
+        
+        for (const student of studentsToAdd) {
+          try {
+            await emailService.sendGroupAssignmentNotification(student, group, project);
+          } catch (error) {
+            console.error(`Failed to send notification to ${student.email}:`, error);
+          }
+        }
+      }
     }
   }
   
-  if (studentIndex < unassignedStudents.length) {
-    let groupCount = groups.length;
+  const remainingStudentsCount = shuffledStudents.length - studentIndex;
+  console.log(`📊 Phase 2: Créer de nouveaux groupes pour ${remainingStudentsCount} étudiants restants...`);
+  
+  let groupCounter = groups.length + 1;
+  
+  while (studentIndex < shuffledStudents.length) {
+    const remainingStudents = shuffledStudents.length - studentIndex;
+    let groupSize;
     
-    while (studentIndex < unassignedStudents.length) {
+    if (remainingStudents >= project.maxGroupSize) {
+      
+      groupSize = project.maxGroupSize;
+      console.log(`✅ Création d'un groupe complet de ${groupSize} étudiants`);
+    } else if (remainingStudents >= project.minGroupSize) {
+     
+      groupSize = remainingStudents;
+      console.log(`✅ Création d'un groupe final de ${groupSize} étudiants`);
+    } else {
+     
+      console.log(`⚠️ Il reste seulement ${remainingStudents} étudiants (moins que le minimum ${project.minGroupSize})`);
+      
+      let distributed = false;
+      
+     
+      const allExistingGroups = [...sortedGroups, ...newGroups];
+      
+      for (const group of allExistingGroups) {
+        if (studentIndex >= shuffledStudents.length) break;
+        
+      
+        const currentMemberCount = await group.countMembers();
+        const availableSlots = project.maxGroupSize - currentMemberCount;
+        
+        if (availableSlots > 0) {
+          const studentsToAdd = [];
+          const maxToAdd = Math.min(availableSlots, shuffledStudents.length - studentIndex);
+          
+          for (let i = 0; i < maxToAdd; i++) {
+            studentsToAdd.push(shuffledStudents[studentIndex]);
+            studentIndex++;
+          }
+          
+          if (studentsToAdd.length > 0) {
+            console.log(`👥 Répartition de ${studentsToAdd.length} étudiants dans le groupe "${group.name}"`);
+            await group.addMembers(studentsToAdd);
+            
+         
+            if (!updatedGroups.includes(group) && !newGroups.includes(group)) {
+              updatedGroups.push(group);
+            }
+            
+            for (const student of studentsToAdd) {
+              try {
+                await emailService.sendGroupAssignmentNotification(student, group, project);
+              } catch (error) {
+                console.error(`Failed to send notification to ${student.email}:`, error);
+              }
+            }
+            
+            distributed = true;
+          }
+        }
+      }
+      
+      if (!distributed && studentIndex < shuffledStudents.length) {
+        
+        groupSize = remainingStudents;
+        console.log(`⚠️ Création forcée d'un groupe de ${groupSize} étudiants (en dessous du minimum de ${project.minGroupSize})`);
+      } else {
+       
+        break;
+      }
+    }
+    
+ 
+    if (groupSize && studentIndex < shuffledStudents.length) {
       const newGroup = await Group.create({
-        name: `Group ${groupCount + 1}`,
+        name: `Groupe ${groupCounter}`,
         projectId
       });
       
-      newGroups.push(newGroup);
-      groupCount++;
-      
       const membersToAdd = [];
-      while (membersToAdd.length < project.maxGroupSize && studentIndex < unassignedStudents.length) {
-        membersToAdd.push(unassignedStudents[studentIndex]);
+      for (let i = 0; i < groupSize && studentIndex < shuffledStudents.length; i++) {
+        membersToAdd.push(shuffledStudents[studentIndex]);
         studentIndex++;
       }
       
       await newGroup.addMembers(membersToAdd);
       
+      console.log(`✅ Nouveau groupe "${newGroup.name}" créé avec ${membersToAdd.length} membres`);
+      newGroups.push(newGroup);
+      groupCounter++;
+      
+    
       for (const member of membersToAdd) {
         try {
           await emailService.sendGroupAssignmentNotification(member, newGroup, project);
@@ -404,13 +540,22 @@ const assignRemainingStudents = async (projectId) => {
     }
   }
   
+  const totalAssigned = unassignedStudents.length;
+  console.log(`✅ =============== ASSIGNATION TERMINÉE ===============`);
+  console.log(`📊 Total étudiants assignés: ${totalAssigned}`);
+  console.log(`📊 Groupes mis à jour: ${updatedGroups.length}`);
+  console.log(`📊 Nouveaux groupes créés: ${newGroups.length}`);
+  console.log(`✅ ===============================================`);
+  
   return {
-    message: `${unassignedStudents.length} students were assigned to groups`,
+    message: `${totalAssigned} étudiants ont été assignés automatiquement aux groupes`,
     newGroups,
-    updatedGroups: groups
+    updatedGroups,
+    totalAssigned,
+    groupsCreated: newGroups.length,
+    groupsUpdated: updatedGroups.length
   };
 };
-
 const getGroupProject = async (groupId) => {
   const group = await Group.findByPk(groupId, {
     include: {
@@ -426,6 +571,111 @@ const getGroupProject = async (groupId) => {
   return group.project;
 };
 
+const deleteGroup = async (groupId, isTeacher) => {
+  const group = await Group.findByPk(groupId, {
+    include: [
+      {
+        model: User,
+        as: 'members',
+        through: { attributes: [] }
+      }
+    ]
+  });
+
+  if (!group) {
+    throw new Error('Group not found');
+  }
+
+  if (!isTeacher) {
+    throw new Error('Only teachers can delete groups');
+  }
+
+  await group.setMembers([]);
+  
+  await group.destroy();
+
+  return {
+    message: 'Group deleted successfully'
+  };
+};
+
+const updateGroup = async (groupId, updateData, isTeacher) => {
+  const group = await Group.findByPk(groupId, {
+    include: [
+      {
+        model: Project,
+        as: 'project'
+      },
+      {
+        model: User,
+        as: 'members'
+      }
+    ]
+  });
+
+  if (!group) {
+    throw new AppError('Group not found', 404);
+  }
+
+  if (!isTeacher) {
+    throw new AppError('Only teachers can update groups', 403);
+  }
+
+  if (updateData.name) {
+    group.name = updateData.name;
+    await group.save();
+  }
+
+  if (updateData.memberIds) {
+    const project = group.project;
+    
+    if (updateData.memberIds.length < project.minGroupSize || 
+        updateData.memberIds.length > project.maxGroupSize) {
+      throw new AppError(`Group size must be between ${project.minGroupSize} and ${project.maxGroupSize}`, 400);
+    }
+
+    const members = await User.findAll({
+      where: { 
+        id: updateData.memberIds,
+        promotionId: project.promotionId,
+        role: 'student',
+        isActive: true
+      }
+    });
+
+    if (members.length !== updateData.memberIds.length) {
+      throw new AppError('Some specified members do not exist or are not in the project promotion', 400);
+    }
+
+    for (const member of members) {
+      const existingGroups = await member.getGroups({
+        where: { 
+          projectId: project.id,
+          id: { [Op.ne]: groupId } 
+        }
+      });
+      
+      if (existingGroups.length > 0) {
+        throw new AppError(`Student ${member.firstName} ${member.lastName} is already in another group for this project`, 400);
+      }
+    }
+
+    await group.setMembers(members);
+  }
+
+  const updatedGroup = await Group.findByPk(groupId, {
+    include: [
+      {
+        model: User,
+        as: 'members',
+        attributes: ['id', 'firstName', 'lastName', 'email']
+      }
+    ]
+  });
+
+  return updatedGroup;
+};
+
 module.exports = {
   createGroup,
   getGroupById,
@@ -434,5 +684,8 @@ module.exports = {
   removeMemberFromGroup,
   createGroupByStudent,
   assignRemainingStudents,
-  getGroupProject
+  getGroupProject,
+  deleteGroup,
+  updateGroup,
+  getPromotionStudents  // 🆕 NOUVELLE MÉTHODE EXPORTÉE
 };
