@@ -36,7 +36,7 @@ app.use('/api/projects', projectRoutes);
 app.use('/api/groups', groupRoutes);
 app.use('/api/deliverables', deliverableRoutes);
 app.use('/api/reports', reportRoutes);
-app.use('/api/evaluations', evaluationRoutes);
+app.use('/api/evaluation', evaluationRoutes);
 app.use('/api/notifications', notificationRoutes);
 
 app.get('/', (req, res) => {

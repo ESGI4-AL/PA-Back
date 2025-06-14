@@ -2,7 +2,8 @@ const evaluationService = require('../services/evaluation.service');
 const { asyncHandler } = require('../middlewares/error.middleware');
 
 const createEvaluationCriteria = asyncHandler(async (req, res) => {
-  const { projectId } = req.params;
+
+  const { id: projectId } = req.params;
   const criteriaData = req.body;
   const teacherId = req.user.id;
   
@@ -16,7 +17,8 @@ const createEvaluationCriteria = asyncHandler(async (req, res) => {
 });
 
 const getProjectEvaluationCriteria = asyncHandler(async (req, res) => {
-  const { projectId } = req.params;
+
+  const { id: projectId } = req.params;
   
   const criteria = await evaluationService.getProjectEvaluationCriteria(projectId);
   
@@ -27,7 +29,8 @@ const getProjectEvaluationCriteria = asyncHandler(async (req, res) => {
 });
 
 const updateEvaluationCriteria = asyncHandler(async (req, res) => {
-  const { id } = req.params;
+ 
+  const { id } = req.params; 
   const updateData = req.body;
   const teacherId = req.user.id;
   
@@ -41,6 +44,7 @@ const updateEvaluationCriteria = asyncHandler(async (req, res) => {
 });
 
 const deleteEvaluationCriteria = asyncHandler(async (req, res) => {
+  
   const { id } = req.params;
   const teacherId = req.user.id;
   
@@ -53,6 +57,7 @@ const deleteEvaluationCriteria = asyncHandler(async (req, res) => {
 });
 
 const gradeGroupCriteria = asyncHandler(async (req, res) => {
+ 
   const { criteriaId, groupId } = req.params;
   const gradeData = req.body;
   const teacherId = req.user.id;
@@ -67,6 +72,7 @@ const gradeGroupCriteria = asyncHandler(async (req, res) => {
 });
 
 const gradeIndividualCriteria = asyncHandler(async (req, res) => {
+  
   const { criteriaId, studentId } = req.params;
   const gradeData = req.body;
   const teacherId = req.user.id;
@@ -81,7 +87,8 @@ const gradeIndividualCriteria = asyncHandler(async (req, res) => {
 });
 
 const getProjectGrades = asyncHandler(async (req, res) => {
-  const { projectId } = req.params;
+  
+  const { id: projectId } = req.params;
   const teacherId = req.user.id;
   
   const grades = await evaluationService.getProjectGrades(projectId, teacherId);
@@ -93,7 +100,8 @@ const getProjectGrades = asyncHandler(async (req, res) => {
 });
 
 const calculateGroupFinalGrade = asyncHandler(async (req, res) => {
-  const { projectId, groupId } = req.params;
+
+  const { id: projectId, groupId } = req.params;
   const teacherId = req.user.id;
   
   const result = await evaluationService.calculateGroupFinalGrade(projectId, groupId, teacherId);
@@ -105,7 +113,8 @@ const calculateGroupFinalGrade = asyncHandler(async (req, res) => {
 });
 
 const publishProjectGrades = asyncHandler(async (req, res) => {
-  const { projectId } = req.params;
+ 
+  const { id: projectId } = req.params;
   const teacherId = req.user.id;
   
   const result = await evaluationService.publishProjectGrades(projectId, teacherId);
