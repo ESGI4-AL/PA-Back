@@ -21,7 +21,7 @@ const getPromotionStudents = async (promotionId) => {
     order: [['lastName', 'ASC'], ['firstName', 'ASC']]
   });
   
-  console.log('✅ Service - Étudiants trouvés:', students.length);
+  console.log('Service - Étudiants trouvés:', students.length);
   
   return students;
 };
