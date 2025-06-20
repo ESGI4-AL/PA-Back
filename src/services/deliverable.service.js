@@ -4,6 +4,7 @@ const { Deliverable, DeliverableRule, Project, Group, Submission, User } = requi
 const { AppError } = require('../middlewares/error.middleware');
 const emailService = require('./email.service');
 const { bucket } = require('../utils/firebase');
+const { analyzeSimilarity: analyzeFileSimilarityService, analyzeFileSimilarity, SIMILARITY_THRESHOLD } = require('./algoSimilarity.service');
 
 const createDeliverable = async (projectId, deliverableData, teacherId) => {
   const project = await Project.findByPk(projectId);
@@ -226,97 +227,8 @@ const validateRule = async (submission, rule) => {
   return result;
 };
 
-const analyzeSimilarity = async (deliverableId) => {
-  try {
-    const deliverable = await Deliverable.findByPk(deliverableId, {
-      include: [{
-        model: Submission,
-        as: 'submissions',
-        include: ['group']
-      }]
-    });
-
-    if (!deliverable) throw new AppError('Deliverable not found', 404);
-    if (deliverable.submissions.length < 2) {
-      throw new AppError('Not enough submissions to analyze similarity', 400);
-    }
-
-    const submissions = deliverable.submissions.filter(s => s.filePath);
-    if (submissions.length < 2) {
-      throw new AppError('Not enough file submissions to analyze similarity', 400);
-    }
-
-    console.log(`Analyse de similarité pour ${submissions.length} soumissions...`);
-
-    const comparisons = [];
-    const similarityMatrix = {};
-
-    //compare chaque pair quand soumi
-    for (let i = 0; i < submissions.length; i++) {
-      similarityMatrix[submissions[i].id] = {};
-      
-      for (let j = i + 1; j < submissions.length; j++) {
-        console.log(`Comparaison ${i+1}/${submissions.length} avec ${j+1}/${submissions.length}`);
-        
-        const result = await analyzeFileSimilarity(
-          submissions[i].filePath,
-          submissions[j].filePath
-        );
-        
-        comparisons.push({
-          submission1: submissions[i].id,
-          submission2: submissions[j].id,
-          group1: submissions[i].group.name,
-          group2: submissions[j].group.name,
-          similarity: result.finalScore,
-          method: result.recommendedMethod,
-          details: result
-        });
-
-        //matrice de similarité
-        similarityMatrix[submissions[i].id][submissions[j].id] = result.finalScore;
-        similarityMatrix[submissions[j].id] = similarityMatrix[submissions[j].id] || {};
-        similarityMatrix[submissions[j].id][submissions[i].id] = result.finalScore;
-      }
-    }
-
-    //calcule le score
-    for (const submission of submissions) {
-      const otherSubmissions = submissions.filter(s => s.id !== submission.id);
-      if (otherSubmissions.length > 0) {
-        const avgSimilarity = otherSubmissions.reduce((sum, other) => {
-          return sum + (similarityMatrix[submission.id][other.id] || 0);
-        }, 0) / otherSubmissions.length;
-        
-        submission.similarityScore = avgSimilarity;
-        await submission.save();
-      }
-    }
-
-    const suspiciousPairs = comparisons.filter(c => c.similarity > SIMILARITY_THRESHOLD);
-    
-    console.log(`Analyse terminée: ${suspiciousPairs.length} paires suspectes détectées`);
-
-    return {
-      deliverableId,
-      submissionsCount: submissions.length,
-      comparisons,
-      similarityMatrix,
-      suspiciousPairs,
-      threshold: SIMILARITY_THRESHOLD,
-      submissions: submissions.map(s => ({
-        id: s.id,
-        groupName: s.group.name,
-        fileName: path.basename(s.filePath),
-        avgSimilarityScore: s.similarityScore
-      }))
-    };
-
-  } catch (error) {
-    console.error('Erreur dans analyzeSimilarity:', error);
-    throw error;
-  }
-};
+//algo de similarité
+const analyzeSimilarity = analyzeFileSimilarityService;
 
 const getDeliverableSummary = async (deliverableId, teacherId) => {
   const deliverable = await Deliverable.findByPk(deliverableId, {
@@ -370,6 +282,7 @@ const getDeliverableSummary = async (deliverableId, teacherId) => {
 };
 
 const sendDeadlineReminders = async () => {
+  const { Op } = require('sequelize');
   const now = new Date();
   const in24Hours = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
