@@ -344,13 +344,15 @@ const analyzeFileSimilarity = async (file1Path, file2Path) => {
 };
 
 
+
+
 module.exports = {
-  analyzeFileSimilarity,
-  analyzeSimilarity,
-  hashSimilarity,
-  textSimilarity,
-  ngramSimilarity,
-  structureSimilarity,
-  MAX_FILE_SIZE,
-  SIMILARITY_THRESHOLD
-};
+    analyzeFileSimilarity,
+    analyzeSimilarity: analyzeFileSimilarity,
+    hashSimilarity,
+    textSimilarity,
+    ngramSimilarity,
+    structureSimilarity,
+    MAX_FILE_SIZE,
+    SIMILARITY_THRESHOLD
+  };
