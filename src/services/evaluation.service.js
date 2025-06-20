@@ -25,7 +25,7 @@ const createEvaluationCriteria = async (projectId, criteriaData, teacherId) => {
     name: criteriaData.name,
     description: criteriaData.description || null,
     weight: criteriaData.weight,
-    type: criteriaData.type || 'group', // group or individual
+    type: criteriaData.type || 'group',
     evaluationType: criteriaData.evaluationType,
     projectId
   });
@@ -283,7 +283,6 @@ const getProjectGrades = async (projectId, teacherId) => {
     throw new AppError('You are not authorized to view grades for this project', 403);
   }
   
-  // ✅ 1. Récupérer TOUS les groupes du projet
   const allGroups = await Group.findAll({
     where: { projectId },
     include: [
@@ -295,7 +294,6 @@ const getProjectGrades = async (projectId, teacherId) => {
     ]
   });
   
-  // ✅ 2. Récupérer TOUS les étudiants du projet via la promotion
   const allStudents = await User.findAll({
     where: { 
       role: 'student',
@@ -304,14 +302,12 @@ const getProjectGrades = async (projectId, teacherId) => {
     attributes: ['id', 'firstName', 'lastName', 'email']
   });
   
-  // ✅ 3. Récupérer les critères
   const criteria = await EvaluationCriteria.findAll({
     where: { projectId }
   });
   
   const criteriaIds = criteria.map(c => c.id);
   
-  // ✅ 4. Récupérer toutes les notes existantes
   const grades = await Grade.findAll({
     where: {
       criteriaId: criteriaIds
@@ -352,14 +348,12 @@ const getProjectGrades = async (projectId, teacherId) => {
     ]
   });
   
-  // ✅ 5. Initialiser la structure avec TOUS les groupes et étudiants
   const organizedGrades = {
     deliverable: { group: {}, individual: {} },
     report: { group: {}, individual: {} },
     presentation: { group: {}, individual: {} }
   };
   
-  // ✅ 6. Ajouter TOUS les groupes (même sans notes)
   for (const group of allGroups) {
     for (const evaluationType of ['deliverable', 'report', 'presentation']) {
       organizedGrades[evaluationType].group[group.id] = {
@@ -369,7 +363,6 @@ const getProjectGrades = async (projectId, teacherId) => {
     }
   }
   
-  // ✅ 7. Ajouter TOUS les étudiants (même sans notes)
   for (const student of allStudents) {
     for (const evaluationType of ['deliverable', 'report', 'presentation']) {
       organizedGrades[evaluationType].individual[student.id] = {
@@ -379,18 +372,15 @@ const getProjectGrades = async (projectId, teacherId) => {
     }
   }
   
-  // ✅ 8. Maintenant ajouter les notes existantes
   for (const grade of grades) {
     const evaluationType = grade.criteria.evaluationType;
     const criteriaType = grade.criteria.type;
     
     if (criteriaType === 'group' && grade.group) {
-      // Le groupe existe déjà dans la structure, on ajoute juste la note
       if (organizedGrades[evaluationType].group[grade.groupId]) {
         organizedGrades[evaluationType].group[grade.groupId].grades.push(grade);
       }
     } else if (criteriaType === 'individual' && grade.student) {
-      // L'étudiant existe déjà dans la structure, on ajoute juste la note
       if (organizedGrades[evaluationType].individual[grade.studentId]) {
         organizedGrades[evaluationType].individual[grade.studentId].grades.push(grade);
       }

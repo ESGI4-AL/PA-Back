@@ -55,7 +55,7 @@ router.get('/:id/reports', reportController.getProjectReports);
 router.get('/:id/groups/:groupId/report', reportController.getGroupReport);
 router.post('/:id/groups/:groupId/report/upload', uploadFirebase, reportController.uploadReport);
 
-// Routes de soutenances - teacher only
+//Routes de soutenances - teacher only
 router.post('/:id/presentations', presentationController.createPresentationSchedule);
 router.put('/:id/presentations/reorder', presentationController.reorderPresentationSchedule);
 router.delete('/:id/presentations', presentationController.deletePresentationSchedule); // ✅ Déplacé ici
@@ -63,7 +63,7 @@ router.get('/:id/presentations/pdf', presentationController.generateSchedulePDF)
 router.get('/:id/presentations/attendance-sheet', presentationController.generateAttendanceSheetPDF);
 router.put('/:id/presentations', presentationController.updatePresentationSchedule);
 
-// Routes d'évaluation
+//Routes d'évaluation
 router.post('/:id/evaluation-criteria', evaluationController.createEvaluationCriteria);
 router.get('/:id/evaluation-criteria', evaluationController.getProjectEvaluationCriteria);
 router.get('/:id/grades', evaluationController.getProjectGrades);
