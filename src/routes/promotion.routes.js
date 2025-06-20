@@ -17,5 +17,6 @@ router.post('/:id/students', promotionController.addStudentToPromotion);
 router.post('/:id/students/import', upload.single('file'), handleMulterErrors, promotionController.importStudentsToPromotion);
 router.delete('/:id/students/:studentId', promotionController.removeStudentFromPromotion);
 router.get('/:id/students', promotionController.getPromotionStudents);
+router.put('/:id/students/:studentId', promotionController.updateStudentInPromotion);
 
 module.exports = router;
