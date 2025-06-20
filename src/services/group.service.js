@@ -342,8 +342,8 @@ const assignRemainingStudents = async (projectId) => {
     throw new AppError('This project uses automatic group formation. Use the dedicated automatic assignment feature instead.', 400);
   }
   
-  console.log(`🎯 Début assignation pour projet: ${project.name} (méthode: ${project.groupFormationMethod})`);
-  console.log(`📏 Taille groupes: ${project.minGroupSize}-${project.maxGroupSize} étudiants`);
+  console.log(`Début assignation pour projet: ${project.name} (méthode: ${project.groupFormationMethod})`);
+  console.log(`Taille groupes: ${project.minGroupSize}-${project.maxGroupSize} étudiants`);
   
   const allStudents = await User.findAll({
     where: { 
@@ -365,7 +365,7 @@ const assignRemainingStudents = async (projectId) => {
     ]
   });
   
-  console.log(`📊 Groupes existants: ${groups.length}`);
+  console.log(`Groupes existants: ${groups.length}`);
   
   const assignedStudentIds = new Set();
   groups.forEach(group => {
@@ -376,7 +376,7 @@ const assignRemainingStudents = async (projectId) => {
   
   const unassignedStudents = allStudents.filter(student => !assignedStudentIds.has(student.id));
   
-  console.log(`📋 Étudiants non assignés: ${unassignedStudents.length}`);
+  console.log(`Étudiants non assignés: ${unassignedStudents.length}`);
   
   if (unassignedStudents.length === 0) {
     return { 
@@ -396,7 +396,7 @@ const assignRemainingStudents = async (projectId) => {
     [shuffledStudents[i], shuffledStudents[j]] = [shuffledStudents[j], shuffledStudents[i]];
   }
   
-  console.log('🔄 Étudiants mélangés:', shuffledStudents.map(s => `${s.firstName} ${s.lastName}`));
+  console.log('Étudiants mélangés:', shuffledStudents.map(s => `${s.firstName} ${s.lastName}`));
   
   const sortedGroups = groups.sort((a, b) => a.members.length - b.members.length);
   
@@ -404,7 +404,7 @@ const assignRemainingStudents = async (projectId) => {
   const newGroups = [];
   let studentIndex = 0;
   
-  console.log('📊 Phase 1: Compléter les groupes existants...');
+  console.log('Phase 1: Compléter les groupes existants...');
   for (const group of sortedGroups) {
     if (studentIndex >= shuffledStudents.length) break;
     
@@ -421,7 +421,7 @@ const assignRemainingStudents = async (projectId) => {
       }
       
       if (studentsToAdd.length > 0) {
-        console.log(`👥 Ajout de ${studentsToAdd.length} étudiants au groupe "${group.name}" (${currentMemberCount} -> ${currentMemberCount + studentsToAdd.length})`);
+        console.log(`Ajout de ${studentsToAdd.length} étudiants au groupe "${group.name}" (${currentMemberCount} -> ${currentMemberCount + studentsToAdd.length})`);
         await group.addMembers(studentsToAdd);
         updatedGroups.push(group);
         
@@ -437,7 +437,7 @@ const assignRemainingStudents = async (projectId) => {
   }
   
   const remainingStudentsCount = shuffledStudents.length - studentIndex;
-  console.log(`📊 Phase 2: Créer de nouveaux groupes pour ${remainingStudentsCount} étudiants restants...`);
+  console.log(`Phase 2: Créer de nouveaux groupes pour ${remainingStudentsCount} étudiants restants...`);
   
   let groupCounter = groups.length + 1;
   
@@ -448,14 +448,14 @@ const assignRemainingStudents = async (projectId) => {
     if (remainingStudents >= project.maxGroupSize) {
       
       groupSize = project.maxGroupSize;
-      console.log(`✅ Création d'un groupe complet de ${groupSize} étudiants`);
+      console.log(`Création d'un groupe complet de ${groupSize} étudiants`);
     } else if (remainingStudents >= project.minGroupSize) {
      
       groupSize = remainingStudents;
-      console.log(`✅ Création d'un groupe final de ${groupSize} étudiants`);
+      console.log(`Création d'un groupe final de ${groupSize} étudiants`);
     } else {
      
-      console.log(`⚠️ Il reste seulement ${remainingStudents} étudiants (moins que le minimum ${project.minGroupSize})`);
+      console.log(`Il reste seulement ${remainingStudents} étudiants (moins que le minimum ${project.minGroupSize})`);
       
       let distributed = false;
       
@@ -503,7 +503,7 @@ const assignRemainingStudents = async (projectId) => {
       if (!distributed && studentIndex < shuffledStudents.length) {
         
         groupSize = remainingStudents;
-        console.log(`⚠️ Création forcée d'un groupe de ${groupSize} étudiants (en dessous du minimum de ${project.minGroupSize})`);
+        console.log(`Création forcée d'un groupe de ${groupSize} étudiants (en dessous du minimum de ${project.minGroupSize})`);
       } else {
        
         break;
@@ -525,7 +525,7 @@ const assignRemainingStudents = async (projectId) => {
       
       await newGroup.addMembers(membersToAdd);
       
-      console.log(`✅ Nouveau groupe "${newGroup.name}" créé avec ${membersToAdd.length} membres`);
+      console.log(`Nouveau groupe "${newGroup.name}" créé avec ${membersToAdd.length} membres`);
       newGroups.push(newGroup);
       groupCounter++;
       
@@ -541,11 +541,11 @@ const assignRemainingStudents = async (projectId) => {
   }
   
   const totalAssigned = unassignedStudents.length;
-  console.log(`✅ =============== ASSIGNATION TERMINÉE ===============`);
-  console.log(`📊 Total étudiants assignés: ${totalAssigned}`);
-  console.log(`📊 Groupes mis à jour: ${updatedGroups.length}`);
-  console.log(`📊 Nouveaux groupes créés: ${newGroups.length}`);
-  console.log(`✅ ===============================================`);
+  console.log(`=============== ASSIGNATION TERMINÉE ===============`);
+  console.log(`Total étudiants assignés: ${totalAssigned}`);
+  console.log(`Groupes mis à jour: ${updatedGroups.length}`);
+  console.log(`Nouveaux groupes créés: ${newGroups.length}`);
+  console.log(`===============================================`);
   
   return {
     message: `${totalAssigned} étudiants ont été assignés automatiquement aux groupes`,
@@ -687,5 +687,5 @@ module.exports = {
   getGroupProject,
   deleteGroup,
   updateGroup,
-  getPromotionStudents  // 🆕 NOUVELLE MÉTHODE EXPORTÉE
+  getPromotionStudents
 };

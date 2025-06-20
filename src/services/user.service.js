@@ -134,7 +134,7 @@ const parseImportFile = async (file, fileType) => {
 
       for (let i = 1; i < rows.length; i++) {
         const values = rows[i].split(',').map(v => v.trim());
-        if (values.length !== headers.length) continue; // ligne incomplète
+        if (values.length !== headers.length) continue;
 
         const user = {};
         headers.forEach((header, index) => {
@@ -250,7 +250,6 @@ const getUserProjects = async (userId) => {
         }) 
       : [];
       
-    //find groups the user is a member of
     const groups = await Group.findAll({
       include: [
         {
