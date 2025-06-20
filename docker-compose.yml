@@ -1,5 +1,15 @@
 version: '3.8'
 services:
+  db:
+    image: postgres:latest
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: camillia
+      POSTGRES_DB: student_project_manager
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
   web:
     build: .
     ports:
@@ -26,17 +36,7 @@ services:
       - /app/node_modules
     depends_on:
       - db
-
-  db:
-    image: postgres:latest
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: camillia
-      POSTGRES_DB: student_project_manager
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+    restart: on-failure
 
 volumes:
   postgres_data:
