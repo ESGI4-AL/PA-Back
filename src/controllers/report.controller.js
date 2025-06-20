@@ -25,6 +25,21 @@ const getReportById = asyncHandler(async (req, res) => {
   });
 });
 
+const getReportSections = asyncHandler(async (req, res) => {
+  const { reportId } = req.params;
+  const { sectionIds } = req.query;
+  const userId = req.user.id;
+  
+  const parsedSectionIds = sectionIds ? sectionIds.split(',').map(id => id.trim()) : null;
+  
+  const result = await reportService.getReportSections(reportId, parsedSectionIds, userId);
+  
+  res.status(200).json({
+    status: 'success',
+    data: result
+  });
+});
+
 const getGroupReport = asyncHandler(async (req, res) => {
   const { projectId, groupId } = req.params;
   
@@ -65,11 +80,16 @@ const addReportSection = asyncHandler(async (req, res) => {
 });
 
 const updateReportSection = asyncHandler(async (req, res) => {
-  const { id } = req.params;
+  const { sectionId } = req.params;
   const updateData = req.body;
   const userId = req.user.id;
   
-  const section = await reportService.updateReportSection(id, updateData, userId);
+  console.log(' === CONTROLLER updateReportSection ===');
+  console.log(' sectionId reçu:', sectionId);
+  console.log(' updateData:', updateData);
+  console.log(' userId:', userId);
+  
+  const section = await reportService.updateReportSection(sectionId, updateData, userId);
   
   res.status(200).json({
     status: 'success',
@@ -79,14 +99,19 @@ const updateReportSection = asyncHandler(async (req, res) => {
 });
 
 const deleteReportSection = asyncHandler(async (req, res) => {
-  const { id } = req.params;
+  const { sectionId } = req.params;
   const userId = req.user.id;
   
-  const result = await reportService.deleteReportSection(id, userId);
+  console.log('🗑️ === CONTROLLER deleteReportSection ===');
+  console.log('📝 sectionId reçu:', sectionId);
+  console.log('📝 userId:', userId);
+  console.log('📝 req.params complet:', req.params);
+  
+  const result = await reportService.deleteReportSection(sectionId, userId);
   
   res.status(200).json({
     status: 'success',
-    message: result.message
+    message: result.message || 'Report section deleted successfully'
   });
 });
 
@@ -116,6 +141,69 @@ const getProjectReports = asyncHandler(async (req, res) => {
   });
 });
 
+const getReportNavigation = asyncHandler(async (req, res) => {
+  const { projectId, reportId } = req.params;
+  const userId = req.user.id;
+  
+  const navigation = await reportService.getReportNavigation(projectId, reportId, userId);
+  
+  res.status(200).json({
+    status: 'success',
+    data: navigation
+  });
+});
+
+const getNextReport = asyncHandler(async (req, res) => {
+  const { projectId, reportId } = req.params;
+  const userId = req.user.id;
+  
+  const nextReport = await reportService.getNextReport(reportId, projectId, userId);
+  
+  res.status(200).json({
+    status: 'success',
+    message: 'Next report retrieved successfully',
+    data: nextReport
+  });
+});
+
+const getPreviousReport = asyncHandler(async (req, res) => {
+  const { projectId, reportId } = req.params;
+  const userId = req.user.id;
+  
+  const previousReport = await reportService.getPreviousReport(reportId, projectId, userId);
+  
+  res.status(200).json({
+    status: 'success',
+    message: 'Previous report retrieved successfully',
+    data: previousReport
+  });
+});
+
+const getReportPreview = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { 
+    sectionsOnly = 'false', 
+    sectionIds, 
+    includeMetadata = 'true' 
+  } = req.query;
+  
+  const options = {
+    sectionsOnly: sectionsOnly === 'true',
+    includeMetadata: includeMetadata === 'true'
+  };
+  
+  if (sectionIds) {
+    options.sectionIds = sectionIds.split(',').map(id => id.trim());
+  }
+  
+  const preview = await reportService.getReportPreview(id, options);
+  
+  res.status(200).json({
+    status: 'success',
+    data: preview
+  });
+});
+
 const uploadReport = asyncHandler(async (req, res) => {
   const { id: projectId, groupId } = req.params;
 
@@ -137,6 +225,7 @@ const uploadReport = asyncHandler(async (req, res) => {
 module.exports = {
   createReport,
   getReportById,
+  getReportSections,
   getGroupReport,
   updateReport,
   addReportSection,
@@ -144,5 +233,9 @@ module.exports = {
   deleteReportSection,
   reorderReportSections,
   getProjectReports,
+  getReportNavigation,
+  getNextReport,
+  getPreviousReport,
+  getReportPreview,
   uploadReport
 };
