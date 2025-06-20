@@ -45,6 +45,7 @@ const createReport = async (projectId, groupId, reportData) => {
       const section = await ReportSection.create({
         title: sectionData.title,
         content: sectionData.content || '',
+        contentType: sectionData.contentType || 'html', // Support WYSIWYG
         order: i,
         reportId: report.id
       });
@@ -89,6 +90,61 @@ const getReportById = async (reportId) => {
   }
   
   return report;
+};
+
+const getReportSections = async (reportId, sectionIds = null, userId) => {
+
+  const report = await Report.findByPk(reportId, {
+    include: [
+      {
+        model: Project,
+        as: 'project'
+      },
+      {
+        model: Group,
+        as: 'group',
+        include: [
+          {
+            model: User,
+            as: 'members'
+          }
+        ]
+      }
+    ]
+  });
+
+  if (!report) {
+    throw new AppError('Report not found', 404);
+  }
+
+  const isTeacher = report.project.teacherId === userId;
+  const isMember = report.group.members.some(member => member.id === userId);
+
+  if (!isTeacher && !isMember) {
+    throw new AppError('You are not authorized to view this report', 403);
+  }
+
+  const whereClause = { reportId };
+  if (sectionIds && Array.isArray(sectionIds) && sectionIds.length > 0) {
+    whereClause.id = sectionIds;
+  }
+
+  const sections = await ReportSection.findAll({
+    where: whereClause,
+    order: [['order', 'ASC']]
+  });
+
+  return {
+    report: {
+      id: report.id,
+      title: report.title,
+      description: report.description,
+      project: report.project,
+      group: report.group
+    },
+    sections,
+    totalSections: await ReportSection.count({ where: { reportId } })
+  };
 };
 
 const getGroupReport = async (projectId, groupId) => {
@@ -210,6 +266,7 @@ const addReportSection = async (reportId, sectionData, userId) => {
   const section = await ReportSection.create({
     title: sectionData.title,
     content: sectionData.content || '',
+    contentType: sectionData.contentType || 'html',
     order,
     reportId
   });
@@ -254,10 +311,25 @@ const updateReportSection = async (sectionId, updateData, userId) => {
     throw new AppError('You are not authorized to update this section', 403);
   }
   
-  await section.update({
-    title: updateData.title !== undefined ? updateData.title : section.title,
-    content: updateData.content !== undefined ? updateData.content : section.content
-  });
+  const updateFields = {};
+  
+  if (updateData.title !== undefined) {
+    updateFields.title = updateData.title;
+  }
+  
+  if (updateData.content !== undefined) {
+    updateFields.content = updateData.content;
+  }
+  
+  if (updateData.contentType !== undefined) {
+    const validTypes = ['html', 'markdown', 'plain'];
+    if (!validTypes.includes(updateData.contentType)) {
+      throw new AppError('Invalid content type. Must be html, markdown, or plain', 400);
+    }
+    updateFields.contentType = updateData.contentType;
+  }
+  
+  await section.update(updateFields);
   
   return section;
 };
@@ -423,14 +495,179 @@ const getProjectReports = async (projectId, teacherId) => {
   return reports;
 };
 
+const getReportNavigation = async (projectId, currentReportId, userId) => {
+  const project = await Project.findByPk(projectId);
+  
+  if (!project) {
+    throw new AppError('Project not found', 404);
+  }
+
+  const currentReport = await Report.findByPk(currentReportId, {
+    include: [
+      {
+        model: Group,
+        as: 'group',
+        include: [
+          {
+            model: User,
+            as: 'members'
+          }
+        ]
+      }
+    ]
+  });
+
+  if (!currentReport) {
+    throw new AppError('Current report not found', 404);
+  }
+
+  const isTeacher = project.teacherId === userId;
+  const isMember = currentReport.group.members.some(member => member.id === userId);
+
+  if (!isTeacher && !isMember) {
+    throw new AppError('You are not authorized to navigate these reports', 403);
+  }
+  
+  const allReports = await Report.findAll({
+    where: { projectId },
+    include: [
+      {
+        model: Group,
+        as: 'group',
+        attributes: ['id', 'name']
+      }
+    ],
+    order: [
+      [{ model: Group, as: 'group' }, 'name', 'ASC']
+    ]
+  });
+  
+  const currentIndex = allReports.findIndex(report => report.id === currentReportId);
+  
+  if (currentIndex === -1) {
+    throw new AppError('Current report not found in project', 404);
+  }
+  
+  const navigation = {
+    current: {
+      index: currentIndex + 1,
+      total: allReports.length,
+      report: allReports[currentIndex]
+    },
+    previous: currentIndex > 0 ? allReports[currentIndex - 1] : null,
+    next: currentIndex < allReports.length - 1 ? allReports[currentIndex + 1] : null,
+    all: allReports.map((report, index) => ({
+      id: report.id,
+      title: report.title,
+      groupName: report.group.name,
+      index: index + 1,
+      isCurrent: report.id === currentReportId
+    }))
+  };
+  
+  return navigation;
+};
+
+const getNextReport = async (currentReportId, projectId, userId) => {
+  const navigation = await getReportNavigation(projectId, currentReportId, userId);
+  
+  if (!navigation.next) {
+    throw new AppError('No next report available', 404);
+  }
+  
+  return getReportById(navigation.next.id);
+};
+
+const getPreviousReport = async (currentReportId, projectId, userId) => {
+  const navigation = await getReportNavigation(projectId, currentReportId, userId);
+  
+  if (!navigation.previous) {
+    throw new AppError('No previous report available', 404);
+  }
+  
+  return getReportById(navigation.previous.id);
+};
+
+const getReportPreview = async (reportId, options = {}) => {
+  const { 
+    sectionsOnly = false, 
+    sectionIds = null,
+    includeMetadata = true 
+  } = options;
+
+  const includeOptions = [];
+
+  if (!sectionsOnly) {
+    includeOptions.push(
+      {
+        model: Project,
+        as: 'project'
+      },
+      {
+        model: Group,
+        as: 'group',
+        include: [
+          {
+            model: User,
+            as: 'members',
+            attributes: ['id', 'firstName', 'lastName', 'email']
+          }
+        ]
+      }
+    );
+  }
+
+  // Configuration pour les sections
+  const sectionInclude = {
+    model: ReportSection,
+    as: 'sections',
+    order: [['order', 'ASC']]
+  };
+
+  if (sectionIds && Array.isArray(sectionIds) && sectionIds.length > 0) {
+    sectionInclude.where = { id: sectionIds };
+  }
+
+  includeOptions.push(sectionInclude);
+
+  const report = await Report.findByPk(reportId, {
+    include: includeOptions
+  });
+
+  if (!report) {
+    throw new AppError('Report not found', 404);
+  }
+
+  const result = {
+    id: report.id,
+    title: report.title,
+    description: report.description,
+    sections: report.sections
+  };
+
+  if (includeMetadata && !sectionsOnly) {
+    result.project = report.project;
+    result.group = report.group;
+    result.createdAt = report.createdAt;
+    result.updatedAt = report.updatedAt;
+  }
+
+  return result;
+};
+
 module.exports = {
   createReport,
   getReportById,
+  getReportSections,
   getGroupReport,
   updateReport,
   addReportSection,
   updateReportSection,
   deleteReportSection,
   reorderReportSections,
-  getProjectReports
+  getProjectReports,
+  getReportNavigation,
+  getNextReport,
+  getPreviousReport,
+  getReportPreview
 };
