@@ -7,7 +7,7 @@ on:
 
 jobs:
   dependencies:
-    name: Check Dependencies Installation
+    name: Check NPM Installation
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -170,7 +170,7 @@ jobs:
         run: |
           echo "Testing if the application can start..."
           # Test that the app can start (timeout after 30 seconds)
-          timeout 30s npm start &
+          timeout 30s npm run dev &
           APP_PID=$!
           sleep 10
 
