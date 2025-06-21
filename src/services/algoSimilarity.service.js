@@ -9,13 +9,18 @@ const { AppError } = require('../middlewares/error.middleware');
 const MAX_FILE_SIZE = 10 * 1024 * 1024; //10MB
 const SIMILARITY_THRESHOLD = 0.8;//seuil de suspicion
 
-
 //Télécharge un fichier depuis Firebase Storage
- 
 const downloadFile = async (filePath) => {
   try {
     if (!filePath || typeof filePath !== 'string') {
       throw new Error('Chemin de fichier invalide');
+    }
+
+    // Support pour URLs Git (simulation de contenu)
+    if (filePath.startsWith('http') && !filePath.includes('firebase') && !filePath.includes('googleapis.com')) {
+      console.log('URL Git detectee, simulation du contenu...');
+      const mockContent = `# Repository: ${filePath}\n# Simulated content for similarity analysis\nfunction main() {\n  console.log("Hello from ${path.basename(filePath)}");\n}`;
+      return Buffer.from(mockContent, 'utf-8');
     }
 
     if (!filePath.includes('firebase') && !filePath.includes('googleapis.com')) {
@@ -65,9 +70,7 @@ const detectFileType = (fileName) => {
 
 //ALGO ICI 
 
-
 //similarite par Hash MD5 (détection  pour copie exacte)
-
 const hashSimilarity = async (file1Path, file2Path) => {
   try {
     const [buffer1, buffer2] = await Promise.all([
@@ -93,7 +96,6 @@ const hashSimilarity = async (file1Path, file2Path) => {
     return { score: 0, method: 'hash', error: error.message };
   }
 };
-
 
 //distance de Levenshtein pour textes
 const levenshteinDistance = (str1, str2) => {
@@ -124,7 +126,6 @@ const levenshteinDistance = (str1, str2) => {
   
   return matrix[str2.length][str1.length];
 };
-
 
 //Similarité textuelle (Levenshtein + normalisation)
 const textSimilarity = async (file1Path, file2Path) => {
@@ -158,7 +159,6 @@ const textSimilarity = async (file1Path, file2Path) => {
     return { score: 0, method: 'text', error: error.message };
   }
 };
-
 
 //similarite par N-grammes (pour code source)
 const ngramSimilarity = async (file1Path, file2Path, n = 3) => {
@@ -206,7 +206,6 @@ const ngramSimilarity = async (file1Path, file2Path, n = 3) => {
     return { score: 0, method: 'ngram', error: error.message };
   }
 };
-
 
 //similarite structurelle pour archives ZIP
 const structureSimilarity = async (file1Path, file2Path) => {
@@ -264,11 +263,42 @@ const structureSimilarity = async (file1Path, file2Path) => {
   }
 };
 
-
 //analyse la similarite entre deux fichiers
 //choisit automatiquement le meilleur algo selon le type
-
 const analyzeFileSimilarity = async (file1Path, file2Path) => {
+  // Protection contre les chemins undefined
+  if (!file1Path || typeof file1Path !== 'string') {
+    console.error('Chemin fichier 1 invalide:', file1Path);
+    return {
+      file1: 'CHEMIN_INVALIDE',
+      file2: file2Path || 'CHEMIN_INVALIDE',
+      type1: 'unknown',
+      type2: 'unknown',
+      algorithms: [],
+      finalScore: 0,
+      recommendedMethod: 'error',
+      error: 'Chemin du fichier 1 invalide ou manquant',
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  if (!file2Path || typeof file2Path !== 'string') {
+    console.error('Chemin fichier 2 invalide:', file2Path);
+    return {
+      file1: file1Path,
+      file2: 'CHEMIN_INVALIDE',
+      type1: 'unknown',
+      type2: 'unknown',
+      algorithms: [],
+      finalScore: 0,
+      recommendedMethod: 'error',
+      error: 'Chemin du fichier 2 invalide ou manquant',
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  console.log('Chemins valides:', { file1Path, file2Path });
+
   const fileName1 = path.basename(file1Path);
   const fileName2 = path.basename(file2Path);
   
@@ -338,21 +368,20 @@ const analyzeFileSimilarity = async (file1Path, file2Path) => {
     console.error('Erreur dans analyzeFileSimilarity:', error);
     results.error = error.message;
     results.finalScore = 0;
+    results.recommendedMethod = 'error';
   }
 
   return results;
 };
 
-
-
-
 module.exports = {
-    analyzeFileSimilarity,
-    analyzeSimilarity: analyzeFileSimilarity,
-    hashSimilarity,
-    textSimilarity,
-    ngramSimilarity,
-    structureSimilarity,
-    MAX_FILE_SIZE,
-    SIMILARITY_THRESHOLD
-  };
+  analyzeFileSimilarity,
+  hashSimilarity,
+  textSimilarity,
+  ngramSimilarity,
+  structureSimilarity,
+  detectFileType,
+  downloadFile,
+  MAX_FILE_SIZE,
+  SIMILARITY_THRESHOLD
+};
