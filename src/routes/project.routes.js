@@ -13,6 +13,7 @@ const uploadFirebase = require('../middlewares/uploadFirebase');
 router.use(verifyToken);
 
 router.get('/', projectController.getAllProjects);
+router.get('/my-projects', projectController.getMyProjects);
 router.get('/:id', projectController.getProjectById);
 
 //handle group
@@ -58,7 +59,7 @@ router.post('/:id/groups/:groupId/report/upload', uploadFirebase, reportControll
 //Routes de soutenances - teacher only
 router.post('/:id/presentations', presentationController.createPresentationSchedule);
 router.put('/:id/presentations/reorder', presentationController.reorderPresentationSchedule);
-router.delete('/:id/presentations', presentationController.deletePresentationSchedule); // ✅ Déplacé ici
+router.delete('/:id/presentations', presentationController.deletePresentationSchedule);
 router.get('/:id/presentations/pdf', presentationController.generateSchedulePDF);
 router.get('/:id/presentations/attendance-sheet', presentationController.generateAttendanceSheetPDF);
 router.put('/:id/presentations', presentationController.updatePresentationSchedule);
