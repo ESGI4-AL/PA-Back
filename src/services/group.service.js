@@ -676,6 +676,49 @@ const updateGroup = async (groupId, updateData, isTeacher) => {
   return updatedGroup;
 };
 
+const getUserGroupForProject = async (projectId, userId) => {
+  console.log(`🔍 Service - Recherche du groupe pour l'utilisateur ${userId} dans le projet ${projectId}`);
+
+  try {
+    // Vérifier que le projet existe
+    const project = await Project.findByPk(projectId);
+    if (!project) {
+      throw new AppError('Project not found', 404);
+    }
+
+    // Rechercher le groupe contenant cet utilisateur pour ce projet
+    const userGroup = await Group.findOne({
+      where: {
+        projectId: projectId
+      },
+      include: [
+        {
+          model: User,
+          as: 'members',
+          where: {
+            id: userId
+          },
+          attributes: ['id', 'firstName', 'lastName', 'email'],
+          required: true // INNER JOIN pour s'assurer que l'utilisateur est membre
+        }
+      ]
+    });
+
+    if (!userGroup) {
+      console.log(`ℹ️ Service - Utilisateur ${userId} non assigné à un groupe pour le projet ${projectId}`);
+      return null;
+    }
+
+    console.log(`✅ Service - Groupe trouvé: ${userGroup.name} (ID: ${userGroup.id})`);
+    return userGroup;
+
+  } catch (error) {
+    console.error('❌ Service - Erreur lors de la récupération du groupe utilisateur:', error);
+    throw error;
+  }
+};
+
+
 module.exports = {
   createGroup,
   getGroupById,
@@ -687,5 +730,6 @@ module.exports = {
   getGroupProject,
   deleteGroup,
   updateGroup,
-  getPromotionStudents
+  getPromotionStudents,
+  getUserGroupForProject
 };

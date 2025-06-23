@@ -5,6 +5,9 @@ const { verifyToken, isTeacher } = require('../middlewares/auth.middleware');
 
 router.use(verifyToken);
 
+router.get('/project/:projectId/user-group', groupController.getUserGroupForProject);
+
+
 router.get('/:id', groupController.getGroupById);
 router.delete('/:id', isTeacher, groupController.deleteGroup);
 router.post('/:id/members/:memberId', groupController.addMemberToGroup);

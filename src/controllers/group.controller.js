@@ -1,6 +1,6 @@
 const groupService = require('../services/group.service');
 const { asyncHandler } = require('../middlewares/error.middleware');
-const { Group, Project } = require('../models');
+const { Group, Project, User } = require('../models'); // Ajout de User ici !
 
 const createGroup = asyncHandler(async (req, res) => {
   const { id } = req.params;
@@ -59,6 +59,40 @@ const removeMemberFromGroup = asyncHandler(async (req, res) => {
     status: 'success',
     message: result.message
   });
+});
+
+// Version corrigée qui utilise le service au lieu de faire la requête directement
+const getUserGroupForProject = asyncHandler(async (req, res) => {
+  const { projectId } = req.params;
+  const userId = req.user.id;
+
+  console.log(`🔍 Contrôleur - Recherche du groupe pour l'utilisateur ${userId} dans le projet ${projectId}`);
+
+  try {
+    // Utiliser le service au lieu de faire la requête directement
+    const userGroup = await groupService.getUserGroupForProject(projectId, userId);
+
+    if (!userGroup) {
+      console.log(`ℹ️ Contrôleur - Utilisateur ${userId} non assigné à un groupe pour le projet ${projectId}`);
+      return res.status(404).json({
+        status: 'error',
+        message: 'Utilisateur non assigné à un groupe pour ce projet',
+        data: null
+      });
+    }
+
+    console.log(`✅ Contrôleur - Groupe trouvé: ${userGroup.name} (ID: ${userGroup.id})`);
+
+    res.status(200).json({
+      status: 'success',
+      data: userGroup,
+      message: 'Groupe utilisateur récupéré avec succès'
+    });
+
+  } catch (error) {
+    console.error('❌ Contrôleur - Erreur lors de la récupération du groupe utilisateur:', error);
+    throw error; // asyncHandler va gérer l'erreur
+  }
 });
 
 const createGroupByStudent = asyncHandler(async (req, res) => {
@@ -124,26 +158,19 @@ const updateGroup = asyncHandler(async (req, res) => {
   });
 });
 
-// Ajoutez ceci dans votre controllers/group.controller.js
-const getPromotionStudents = async (req, res, next) => {
-  try {
-    const { promotionId } = req.params;
-    
-    const students = await groupService.getPromotionStudents(promotionId);
-    
-    res.status(200).json({
-      success: true,
-      data: {
-        students: students
-      },
-      message: `${students.length} étudiants trouvés dans la promotion`
-    });
-    
-  } catch (error) {
-    console.error('❌ Erreur getPromotionStudents controller:', error);
-    next(error);
-  }
-};
+const getPromotionStudents = asyncHandler(async (req, res) => {
+  const { promotionId } = req.params;
+  
+  const students = await groupService.getPromotionStudents(promotionId);
+  
+  res.status(200).json({
+    success: true,
+    data: {
+      students: students
+    },
+    message: `${students.length} étudiants trouvés dans la promotion`
+  });
+});
 
 module.exports = {
   createGroup,
@@ -156,5 +183,6 @@ module.exports = {
   getGroupProject,
   deleteGroup,
   updateGroup,
-  getPromotionStudents
+  getPromotionStudents,
+  getUserGroupForProject
 };
