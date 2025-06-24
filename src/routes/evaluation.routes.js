@@ -4,6 +4,8 @@ const evaluationController = require('../controllers/evaluation.controller');
 const { verifyToken, isTeacher } = require('../middlewares/auth.middleware');
 
 router.use(verifyToken);
+
+
 router.use(isTeacher);
 
 

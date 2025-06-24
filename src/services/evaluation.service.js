@@ -623,6 +623,243 @@ const publishProjectGrades = async (projectId, teacherId) => {
   };
 };
 
+const getStudentProjectGrades = async (projectId, studentId) => {
+  console.log('=== DÉBUT getStudentProjectGrades SERVICE ===');
+  console.log('Project ID:', projectId);
+  console.log('Student ID:', studentId);
+  
+  const project = await Project.findByPk(projectId);
+  if (!project) {
+    throw new AppError('Project not found', 404);
+  }
+  
+  const student = await User.findByPk(studentId, {
+    attributes: ['id', 'firstName', 'lastName', 'email', 'promotionId']
+  });
+  
+  if (!student) {
+    throw new AppError('Student not found', 404);
+  }
+  
+  if (student.promotionId !== project.promotionId) {
+    throw new AppError('Student is not part of this project promotion', 403);
+  }
+  
+  const studentGroup = await Group.findOne({
+    where: { projectId },
+    include: [
+      {
+        model: User,
+        as: 'members',
+        where: { id: studentId },
+        attributes: ['id', 'firstName', 'lastName', 'email']
+      }
+    ]
+  });
+  
+  console.log('Groupe trouvé pour l\'étudiant:', studentGroup ? studentGroup.id : 'Aucun');
+  
+  const criteria = await EvaluationCriteria.findAll({
+    where: { projectId },
+    order: [['evaluationType', 'ASC'], ['type', 'ASC'], ['name', 'ASC']]
+  });
+  
+  const criteriaIds = criteria.map(c => c.id);
+  console.log('Critères trouvés:', criteriaIds.length);
+  
+  const individualGrades = await Grade.findAll({
+    where: {
+      criteriaId: criteriaIds,
+      studentId: studentId,
+      isPublished: true
+    },
+    include: [
+      {
+        model: EvaluationCriteria,
+        as: 'criteria'
+      }
+    ],
+    order: [['updatedAt', 'DESC']]
+  });
+  
+  console.log('Notes individuelles trouvées:', individualGrades.length);
+  
+  let groupGrades = [];
+  if (studentGroup) {
+    groupGrades = await Grade.findAll({
+      where: {
+        criteriaId: criteriaIds,
+        groupId: studentGroup.id,
+        isPublished: true
+      },
+      include: [
+        {
+          model: EvaluationCriteria,
+          as: 'criteria'
+        }
+      ],
+      order: [['updatedAt', 'DESC']]
+    });
+    
+    console.log('Notes de groupe trouvées:', groupGrades.length);
+  }
+  
+  const organizedGrades = {
+    deliverable: { group: [], individual: [] },
+    report: { group: [], individual: [] },
+    presentation: { group: [], individual: [] }
+  };
+  
+  for (const grade of individualGrades) {
+    const evaluationType = grade.criteria.evaluationType;
+    if (organizedGrades[evaluationType]) {
+      organizedGrades[evaluationType].individual.push(grade);
+    }
+  }
+  
+  for (const grade of groupGrades) {
+    const evaluationType = grade.criteria.evaluationType;
+    if (organizedGrades[evaluationType]) {
+      organizedGrades[evaluationType].group.push(grade);
+    }
+  }
+  
+  console.log('Notes organisées:', {
+    deliverable: {
+      group: organizedGrades.deliverable.group.length,
+      individual: organizedGrades.deliverable.individual.length
+    },
+    report: {
+      group: organizedGrades.report.group.length,
+      individual: organizedGrades.report.individual.length
+    },
+    presentation: {
+      group: organizedGrades.presentation.group.length,
+      individual: organizedGrades.presentation.individual.length
+    }
+  });
+  
+  const result = {
+    project: {
+      id: project.id,
+      name: project.name,
+      description: project.description
+    },
+    student: {
+      id: student.id,
+      firstName: student.firstName,
+      lastName: student.lastName,
+      email: student.email,
+      group: studentGroup ? {
+        id: studentGroup.id,
+        name: studentGroup.name,
+        members: studentGroup.members.map(member => 
+          `${member.firstName} ${member.lastName}`
+        )
+      } : null
+    },
+    grades: organizedGrades
+  };
+  
+  console.log('=== FIN getStudentProjectGrades SERVICE ===');
+  return result;
+};
+
+const getStudentEvaluationCriteria = async (projectId, studentId) => {
+  console.log('=== DÉBUT getStudentEvaluationCriteria SERVICE ===');
+  console.log('Project ID:', projectId);
+  console.log('Student ID:', studentId);
+  
+  const project = await Project.findByPk(projectId);
+  if (!project) {
+    throw new AppError('Project not found', 404);
+  }
+  
+  const student = await User.findByPk(studentId, {
+    attributes: ['id', 'promotionId']
+  });
+  
+  if (!student) {
+    throw new AppError('Student not found', 404);
+  }
+  
+  if (student.promotionId !== project.promotionId) {
+    throw new AppError('Student is not part of this project promotion', 403);
+  }
+  
+  const criteria = await EvaluationCriteria.findAll({
+    where: { projectId },
+    order: [['evaluationType', 'ASC'], ['type', 'ASC'], ['name', 'ASC']]
+  });
+  
+  console.log('Critères trouvés pour l\'étudiant:', criteria.length);
+  console.log('=== FIN getStudentEvaluationCriteria SERVICE ===');
+  
+  return criteria;
+};
+
+const getStudentGradeDetail = async (projectId, gradeId, studentId) => {
+  console.log('=== DÉBUT getStudentGradeDetail SERVICE ===');
+  console.log('Project ID:', projectId);
+  console.log('Grade ID:', gradeId);
+  console.log('Student ID:', studentId);
+  
+  const grade = await Grade.findOne({
+    where: {
+      id: gradeId,
+      isPublished: true
+    },
+    include: [
+      {
+        model: EvaluationCriteria,
+        as: 'criteria',
+        where: { projectId },
+        required: true
+      },
+      {
+        model: User,
+        as: 'student',
+        attributes: ['id', 'firstName', 'lastName', 'email']
+      },
+      {
+        model: Group,
+        as: 'group',
+        include: [
+          {
+            model: User,
+            as: 'members',
+            attributes: ['id', 'firstName', 'lastName', 'email']
+          }
+        ]
+      }
+    ]
+  });
+  
+  if (!grade) {
+    throw new AppError('Grade not found or not published', 404);
+  }
+  
+  let hasAccess = false;
+  
+  if (grade.studentId === studentId) {
+    hasAccess = true;
+  }
+  
+  if (grade.group && grade.group.members) {
+    const memberIds = grade.group.members.map(member => member.id);
+    if (memberIds.includes(studentId)) {
+      hasAccess = true;
+    }
+  }
+  
+  if (!hasAccess) {
+    throw new AppError('You do not have access to this grade', 403);
+  }
+  
+  console.log('=== FIN getStudentGradeDetail SERVICE ===');
+  return grade;
+};
+
 module.exports = {
   createEvaluationCriteria,
   getProjectEvaluationCriteria,
@@ -632,5 +869,8 @@ module.exports = {
   gradeIndividualCriteria,
   getProjectGrades,
   calculateGroupFinalGrade,
-  publishProjectGrades
+  publishProjectGrades,
+  getStudentProjectGrades,
+  getStudentEvaluationCriteria,
+  getStudentGradeDetail
 };
