@@ -16,7 +16,7 @@ const PresentationSchedule = sequelize.define('PresentationSchedule', {
     allowNull: true
   },
   duration: {
-    type: DataTypes.INTEGER, //minutes
+    type: DataTypes.INTEGER,
     allowNull: true
   },
   order: {

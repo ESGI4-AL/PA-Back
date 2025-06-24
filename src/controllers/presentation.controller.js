@@ -6,7 +6,7 @@ const createPresentationSchedule = asyncHandler(async (req, res) => {
   const scheduleData = req.body;
   const teacherId = req.user.id;
   
-  console.log('📡 Controller - projectId:', projectId, 'teacherId:', teacherId);
+  console.log('Controller - projectId:', projectId, 'teacherId:', teacherId);
   
   const schedule = await presentationService.createPresentationSchedule(projectId, scheduleData, teacherId);
   
