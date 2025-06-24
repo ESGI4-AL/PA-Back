@@ -31,6 +31,10 @@ router.get('/:id/groups/:groupId/report', reportController.getGroupReport);
 //for soutenance - lectures publiques
 router.get('/:id/presentations', presentationController.getProjectPresentationSchedule);
 
+router.get('/:id/student/grades', evaluationController.getStudentProjectGrades);
+router.get('/:id/student/evaluation-criteria', evaluationController.getStudentEvaluationCriteria);
+router.get('/:id/student/grades/:gradeId', evaluationController.getStudentGradeDetail);
+
 //teacher only, handle project
 router.use(isTeacher);
 

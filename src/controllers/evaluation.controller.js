@@ -126,6 +126,88 @@ const publishProjectGrades = asyncHandler(async (req, res) => {
   });
 });
 
+const getStudentProjectGrades = asyncHandler(async (req, res) => {
+  console.log('=== DÉBUT getStudentProjectGrades CONTROLLER ===');
+  
+  const { id: projectId } = req.params;
+  const studentId = req.user.id;
+  
+  console.log('Project ID:', projectId);
+  console.log('Student ID:', studentId);
+  console.log('User role:', req.user.role);
+  
+  if (req.user.role !== 'student') {
+    return res.status(403).json({
+      status: 'error',
+      message: 'Only students can access their grades'
+    });
+  }
+  
+  const result = await evaluationService.getStudentProjectGrades(projectId, studentId);
+  
+  res.status(200).json({
+    status: 'success',
+    data: result
+  });
+  
+  console.log('=== FIN getStudentProjectGrades CONTROLLER ===');
+});
+
+
+const getStudentEvaluationCriteria = asyncHandler(async (req, res) => {
+  console.log('=== DÉBUT getStudentEvaluationCriteria CONTROLLER ===');
+  
+  const { id: projectId } = req.params;
+  const studentId = req.user.id;
+  
+  console.log('Project ID:', projectId);
+  console.log('Student ID:', studentId);
+  
+  if (req.user.role !== 'student') {
+    return res.status(403).json({
+      status: 'error',
+      message: 'Only students can access evaluation criteria'
+    });
+  }
+  
+  const criteria = await evaluationService.getStudentEvaluationCriteria(projectId, studentId);
+  
+  res.status(200).json({
+    status: 'success',
+    data: criteria
+  });
+  
+  console.log('=== FIN getStudentEvaluationCriteria CONTROLLER ===');
+});
+
+
+const getStudentGradeDetail = asyncHandler(async (req, res) => {
+  console.log('=== DÉBUT getStudentGradeDetail CONTROLLER ===');
+  
+  const { id: projectId, gradeId } = req.params;
+  const studentId = req.user.id;
+  
+  console.log('Project ID:', projectId);
+  console.log('Grade ID:', gradeId);
+  console.log('Student ID:', studentId);
+  
+  if (req.user.role !== 'student') {
+    return res.status(403).json({
+      status: 'error',
+      message: 'Only students can access grade details'
+    });
+  }
+  
+  const grade = await evaluationService.getStudentGradeDetail(projectId, gradeId, studentId);
+  
+  res.status(200).json({
+    status: 'success',
+    data: grade
+  });
+  
+  console.log('=== FIN getStudentGradeDetail CONTROLLER ===');
+});
+
 module.exports = {
   createEvaluationCriteria,
   getProjectEvaluationCriteria,
@@ -135,5 +217,8 @@ module.exports = {
   gradeIndividualCriteria,
   getProjectGrades,
   calculateGroupFinalGrade,
-  publishProjectGrades
+  publishProjectGrades,
+  getStudentProjectGrades,
+  getStudentEvaluationCriteria,
+  getStudentGradeDetail
 };
