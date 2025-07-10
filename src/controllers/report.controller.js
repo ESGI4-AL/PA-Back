@@ -102,10 +102,10 @@ const deleteReportSection = asyncHandler(async (req, res) => {
   const { sectionId } = req.params;
   const userId = req.user.id;
   
-  console.log('🗑️ === CONTROLLER deleteReportSection ===');
-  console.log('📝 sectionId reçu:', sectionId);
-  console.log('📝 userId:', userId);
-  console.log('📝 req.params complet:', req.params);
+  console.log('CONTROLLER deleteReportSection');
+  console.log('sectionId reçu:', sectionId);
+  console.log('userId:', userId);
+  console.log('req.params complet:', req.params);
   
   const result = await reportService.deleteReportSection(sectionId, userId);
   
