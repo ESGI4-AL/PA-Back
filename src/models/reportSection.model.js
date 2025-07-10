@@ -15,14 +15,13 @@ const ReportSection = sequelize.define('ReportSection', {
     type: DataTypes.TEXT,
     allowNull: true
   },
-  // NOUVEAUX CHAMPS pour WYSIWYG et fonctionnalités avancées
   contentType: {
     type: DataTypes.ENUM('html', 'markdown', 'plain'),
     defaultValue: 'html',
     allowNull: false
   },
   contentMarkdown: {
-    type: DataTypes.TEXT, // Version markdown du contenu
+    type: DataTypes.TEXT,
     allowNull: true
   },
   isRequired: {
@@ -32,14 +31,14 @@ const ReportSection = sequelize.define('ReportSection', {
   },
   maxLength: {
     type: DataTypes.INTEGER,
-    allowNull: true, // Limite de caractères optionnelle
+    allowNull: true,
     validate: {
       min: 1
     }
   },
   minLength: {
     type: DataTypes.INTEGER,
-    allowNull: true, // Longueur minimale optionnelle
+    allowNull: true,
     validate: {
       min: 0
     }
@@ -59,7 +58,7 @@ const ReportSection = sequelize.define('ReportSection', {
     allowNull: false
   },
   allowedFormats: {
-    type: DataTypes.JSON, // ['bold', 'italic', 'underline', 'list', etc.]
+    type: DataTypes.JSON,
     allowNull: true
   },
   sectionType: {
@@ -67,19 +66,17 @@ const ReportSection = sequelize.define('ReportSection', {
     defaultValue: 'text',
     allowNull: false
   },
-  // Relations (Foreign Keys)
   reportId: {
     type: DataTypes.UUID,
     allowNull: false,
     references: {
-      model: 'reports', // ✅ CORRIGÉ : minuscule
+      model: 'reports',
       key: 'id'
     },
-    onDelete: 'CASCADE' // Supprimer les sections si le rapport est supprimé
+    onDelete: 'CASCADE'
   }
 }, {
   timestamps: true,
-  // TEMPORAIREMENT COMMENTÉ : Index à ajouter après migration
   // indexes: [
   //   {
   //     fields: ['reportId', 'order']
@@ -91,7 +88,6 @@ const ReportSection = sequelize.define('ReportSection', {
   //     fields: ['contentType']
   //   }
   // ],
-  // Validation au niveau du modèle
   validate: {
     minMaxLengthValid() {
       if (this.minLength && this.maxLength && this.minLength > this.maxLength) {
