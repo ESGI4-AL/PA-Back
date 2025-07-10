@@ -15,7 +15,6 @@ const Report = sequelize.define('Report', {
     type: DataTypes.TEXT,
     allowNull: true
   },
-  // NOUVEAUX CHAMPS pour les fonctionnalités avancées
   status: {
     type: DataTypes.ENUM('draft', 'submitted', 'reviewed', 'published'),
     defaultValue: 'draft',
@@ -27,7 +26,7 @@ const Report = sequelize.define('Report', {
     allowNull: false
   },
   templateStructure: {
-    type: DataTypes.JSON, // Structure prédéfinie des sections
+    type: DataTypes.JSON,
     allowNull: true
   },
   lastEditedBy: {
@@ -42,12 +41,11 @@ const Report = sequelize.define('Report', {
     type: DataTypes.DATE,
     allowNull: true
   },
-  // Relations (Foreign Keys)
   projectId: {
     type: DataTypes.UUID,
     allowNull: false,
     references: {
-      model: 'projects', // ✅ CORRIGÉ : minuscule
+      model: 'projects',
       key: 'id'
     }
   },
@@ -55,7 +53,7 @@ const Report = sequelize.define('Report', {
     type: DataTypes.UUID,
     allowNull: false,
     references: {
-      model: 'groups', // ✅ CORRIGÉ : minuscule
+      model: 'groups',
       key: 'id'
     }
   }
