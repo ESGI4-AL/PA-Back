@@ -27,4 +27,4 @@ tmp/
 uploads/
 
 # Config firebase
-/config/firebase-key.json
+config/kodo-project-management-firebase-adminsdk-fbsvc-bb4a40f8d4.json

@@ -20,11 +20,19 @@ const Submission = sequelize.define('Submission', {
     defaultValue: 0
   },
   filePath: {
-    type: DataTypes.STRING,
+    type: DataTypes.TEXT,
     allowNull: true
   },
   gitUrl: {
     type: DataTypes.STRING,
+    allowNull: true
+  },
+  fileName: {
+    type: DataTypes.STRING(500),
+    allowNull: true
+  },
+  fileSize: {
+    type: DataTypes.BIGINT,
     allowNull: true
   },
   validationStatus: {

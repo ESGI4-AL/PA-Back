@@ -3,7 +3,7 @@ const path = require('path');
 const { Deliverable, DeliverableRule, Project, Group, Submission, User } = require('../models');
 const { AppError } = require('../middlewares/error.middleware');
 const emailService = require('./email.service');
-const { bucket } = require('../utils/firebase');
+const { bucket } = require('../../config/firebase-admin');
 const { analyzeFileSimilarity, SIMILARITY_THRESHOLD } = require('./algoSimilarity.service');
 
 const createDeliverable = async (projectId, deliverableData, teacherId) => {
@@ -43,15 +43,44 @@ const getDeliverableById = async (deliverableId) => {
   return deliverable;
 };
 
-const getProjectDeliverables = async (projectId) => {
+const getProjectDeliverables = async (projectId, userId = null) => {
   const project = await Project.findByPk(projectId);
   if (!project) throw new AppError('Project not found', 404);
 
-  return await Deliverable.findAll({
+  const deliverables = await Deliverable.findAll({
     where: { projectId },
-    include: ['rules'],
+    include: [
+      'rules',
+      {
+        model: Submission,
+        as: 'submissions',
+        include: [
+          {
+            model: Group,
+            as: 'group',
+            include: ['members']
+          }
+        ]
+      }
+    ],
     order: [['deadline', 'ASC']]
   });
+
+  // Si un userId est fourni (étudiant), filtrer les soumissions pour ne garder que celles de son groupe
+  if (userId) {
+    return deliverables.map(deliverable => {
+      const userSubmissions = deliverable.submissions.filter(submission =>
+        submission.group.members.some(member => member.id === userId)
+      );
+
+      return {
+        ...deliverable.toJSON(),
+        submissions: userSubmissions
+      };
+    });
+  }
+
+  return deliverables;
 };
 
 const updateDeliverable = async (deliverableId, updateData, teacherId) => {
@@ -95,7 +124,7 @@ const deleteDeliverable = async (deliverableId, teacherId) => {
   return { success: true, message: 'Deliverable deleted successfully' };
 };
 
-const submitDeliverable = async (deliverableId, submissionData, groupId, filePath = null) => {
+const submitDeliverable = async (deliverableId, submissionData, groupId, fileUrl = null, fileName = null, fileSize = null) => {
   const deliverable = await Deliverable.findByPk(deliverableId, {
     include: ['project', 'rules']
   });
@@ -120,15 +149,12 @@ const submitDeliverable = async (deliverableId, submissionData, groupId, filePat
     submission.submissionDate = now;
     submission.isLate = isLate;
     submission.hoursLate = hoursLate;
-
-    if (filePath) {
-      submission.filePath = filePath;
-    }
-
+    submission.filePath = fileUrl;
+    submission.fileName = fileName;
+    submission.fileSize = fileSize;
     if (submissionData.gitUrl) {
       submission.gitUrl = submissionData.gitUrl;
     }
-
     submission.validationStatus = 'pending';
     submission.validationDetails = null;
     await submission.save();
@@ -137,7 +163,9 @@ const submitDeliverable = async (deliverableId, submissionData, groupId, filePat
       submissionDate: now,
       isLate,
       hoursLate,
-      filePath,
+      filePath: fileUrl,
+      fileName: fileName,
+      fileSize: fileSize,
       gitUrl: submissionData.gitUrl || null,
       validationStatus: 'pending',
       groupId,
@@ -187,18 +215,30 @@ const validateRule = async (submission, rule) => {
       }
 
       try {
-        const encodedPath = submission.filePath.split('/o/')[1]?.split('?')[0];
-        const decodedPath = decodeURIComponent(encodedPath);
-        const file = bucket.file(decodedPath);
-        const [metadata] = await file.getMetadata();
-        const fileSize = parseInt(metadata.size, 10);
-        const maxSize = rule.rule.maxSize;
+        if (submission.fileSize) {
+          const fileSize = parseInt(submission.fileSize, 10);
+          const maxSize = rule.rule.maxSize;
 
-        if (fileSize <= maxSize) {
-          result.valid = true;
-          result.message = `Taille OK (${fileSize} / ${maxSize} octets)`;
+          if (fileSize <= maxSize) {
+            result.valid = true;
+            result.message = `Taille OK (${fileSize} / ${maxSize} octets)`;
+          } else {
+            result.message = `Fichier trop volumineux (${fileSize} > ${maxSize} octets)`;
+          }
         } else {
-          result.message = `Fichier trop volumineux (${fileSize} > ${maxSize} octets)`;
+          const encodedPath = submission.filePath.split('/o/')[1]?.split('?')[0];
+          const decodedPath = decodeURIComponent(encodedPath);
+          const file = bucket.file(decodedPath);
+          const [metadata] = await file.getMetadata();
+          const fileSize = parseInt(metadata.size, 10);
+          const maxSize = rule.rule.maxSize;
+
+          if (fileSize <= maxSize) {
+            result.valid = true;
+            result.message = `Taille OK (${fileSize} / ${maxSize} octets)`;
+          } else {
+            result.message = `Fichier trop volumineux (${fileSize} > ${maxSize} octets)`;
+          }
         }
       } catch (error) {
         result.message = `Erreur lors de la vérification de taille : ${error.message}`;
@@ -227,10 +267,10 @@ const validateRule = async (submission, rule) => {
           break;
         }
 
-        // Pour Firebase Storage, verification basique
         if (submission.filePath) {
+          const displayName = submission.fileName || path.basename(submission.filePath);
           result.valid = true;
-          result.message = `Fichier present: ${path.basename(submission.filePath)}`;
+          result.message = `Fichier present: ${displayName}`;
         }
       } catch (error) {
         result.message = `Erreur verification presence: ${error.message}`;
@@ -241,7 +281,7 @@ const validateRule = async (submission, rule) => {
       // Implementation de la verification de structure de dossiers
       try {
         const requiredStructure = rule.rule.structure || {};
-        
+
         if (submission.gitUrl) {
           result.valid = true;
           result.message = 'Structure Git repository (simulation OK)';
@@ -249,10 +289,9 @@ const validateRule = async (submission, rule) => {
         }
 
         if (submission.filePath) {
-          // Pour les archives, verification basique
-          const fileName = path.basename(submission.filePath);
+          const fileName = submission.fileName || path.basename(submission.filePath);
           const isArchive = ['.zip', '.tar', '.gz', '.rar'].some(ext => fileName.toLowerCase().endsWith(ext));
-          
+
           if (isArchive) {
             result.valid = true;
             result.message = `Archive detectee: ${fileName}`;
@@ -272,7 +311,7 @@ const validateRule = async (submission, rule) => {
       // Implementation de la verification de contenu de fichier
       try {
         const contentRules = rule.rule.patterns || [];
-        
+
         if (contentRules.length === 0) {
           result.valid = true;
           result.message = 'Aucune regle de contenu specifiee';
@@ -286,10 +325,9 @@ const validateRule = async (submission, rule) => {
         }
 
         if (submission.filePath) {
-          // Verification basique pour Firebase Storage
-          const fileName = path.basename(submission.filePath);
+          const fileName = submission.fileName || path.basename(submission.filePath);
           const ext = path.extname(fileName).toLowerCase();
-          
+
           if (['.txt', '.md', '.js', '.py', '.java', '.html', '.css'].includes(ext)) {
             result.valid = true;
             result.message = `Fichier texte detecte: ${fileName}`;
@@ -350,11 +388,13 @@ const analyzeSimilarity = async (deliverableId) => {
     // Verification des chemins des fichiers
     console.log('Verification des chemins de fichiers:');
     const validSubmissions = [];
-    
+
     submissions.forEach((submission, index) => {
       console.log(`Soumission ${index + 1}:`, {
         id: submission.id,
         groupName: submission.group?.name,
+        fileName: submission.fileName,
+        fileSize: submission.fileSize,
         filePath: submission.filePath,
         gitUrl: submission.gitUrl
       });
@@ -405,15 +445,13 @@ const analyzeSimilarity = async (deliverableId) => {
           const file1Path = submission1.filePath || submission1.gitUrl;
           const file2Path = submission2.filePath || submission2.gitUrl;
 
-          console.log('  - Fichier 1:', file1Path);
-          console.log('  - Fichier 2:', file2Path);
 
           // Appeler l'algorithme de similarité
           console.log('  - Lancement de l\'analyse...');
           const similarityResult = await analyzeFileSimilarity(file1Path, file2Path);
-          
+
           console.log(`  Resultat: ${(similarityResult.finalScore * 100).toFixed(1)}% (${similarityResult.recommendedMethod})`);
-          
+
           // Créer l'objet de comparaison
           const comparison = {
             submission1Id: submission1.id,
@@ -449,15 +487,15 @@ const analyzeSimilarity = async (deliverableId) => {
           if (similarityResult.finalScore >= SIMILARITY_THRESHOLD) {
             suspiciousPairs.push(comparison);
             console.log(`  PAIRE SUSPECTE DETECTEE: ${(similarityResult.finalScore * 100).toFixed(1)}%`);
-            
+
             // Mettre à jour les soumissions avec le score de similarité
             try {
               await Promise.all([
-                submission1.update({ 
-                  similarityScore: Math.max(submission1.similarityScore || 0, similarityResult.finalScore) 
+                submission1.update({
+                  similarityScore: Math.max(submission1.similarityScore || 0, similarityResult.finalScore)
                 }),
-                submission2.update({ 
-                  similarityScore: Math.max(submission2.similarityScore || 0, similarityResult.finalScore) 
+                submission2.update({
+                  similarityScore: Math.max(submission2.similarityScore || 0, similarityResult.finalScore)
                 })
               ]);
             } catch (updateError) {
@@ -468,7 +506,7 @@ const analyzeSimilarity = async (deliverableId) => {
         } catch (error) {
           errorCount++;
           console.error(`Erreur lors de la comparaison ${i + 1} vs ${j + 1}:`, error.message);
-          
+
           // Ajouter une comparaison avec erreur
           const errorComparison = {
             submission1Id: submission1.id,
@@ -492,7 +530,7 @@ const analyzeSimilarity = async (deliverableId) => {
             isSuspicious: false,
             comparedAt: new Date().toISOString()
           };
-          
+
           comparisons.push(errorComparison);
         }
       }
@@ -524,7 +562,7 @@ const analyzeSimilarity = async (deliverableId) => {
         if (sub1.id === sub2.id) {
           similarityMatrix[sub1.id][sub2.id] = 1.0;
         } else {
-          const comparison = comparisons.find(c => 
+          const comparison = comparisons.find(c =>
             (c.submission1Id === sub1.id && c.submission2Id === sub2.id) ||
             (c.submission1Id === sub2.id && c.submission2Id === sub1.id)
           );
@@ -546,7 +584,7 @@ const analyzeSimilarity = async (deliverableId) => {
         successfulComparisons,
         errorCount,
         suspiciousCount: suspiciousPairs.length,
-        averageSimilarity: successfulComparisons > 0 
+        averageSimilarity: successfulComparisons > 0
           ? (comparisons.filter(c => c.method !== 'error').reduce((sum, c) => sum + c.similarityScore, 0) / successfulComparisons)
           : 0,
         maxSimilarity: comparisons.length > 0 ? Math.max(...comparisons.map(c => c.similarityScore)) : 0
@@ -556,6 +594,8 @@ const analyzeSimilarity = async (deliverableId) => {
         id: s.id,
         groupId: s.group?.id,
         groupName: s.group?.name,
+        fileName: s.fileName,
+        fileSize: s.fileSize,
         filePath: s.filePath,
         gitUrl: s.gitUrl,
         submissionDate: s.submissionDate,
@@ -616,6 +656,91 @@ const sendDeadlineReminders = async () => {
   return { remindersSent, count: remindersSent.length };
 };
 
+const downloadSubmissionFile = async (submissionId, userId, userRole) => {
+  try {
+    const submission = await Submission.findByPk(submissionId, {
+      include: [
+        {
+          model: Group,
+          as: 'group',
+          include: [
+            { model: User, as: 'members' }
+          ]
+        },
+        {
+          model: Deliverable,
+          as: 'deliverable',
+          include: [
+            {
+              model: Project,
+              as: 'project'
+            }
+          ]
+        }
+      ]
+    });
+
+    if (!submission) {
+      throw new AppError('Soumission non trouvée', 404);
+    }
+
+    const isTeacher = userRole === 'teacher';
+    const isGroupMember = submission.group.members.some(member => member.id === userId);
+    const isProjectOwner = submission.deliverable.project.teacherId === userId;
+
+    if (!isTeacher && !isGroupMember && !isProjectOwner) {
+      throw new AppError('Vous n\'êtes pas autorisé à télécharger ce fichier', 403);
+    }
+
+    if (submission.gitUrl) {
+      return {
+        type: 'git',
+        gitUrl: submission.gitUrl,
+        fileName: submission.fileName || 'Repository Git'
+      };
+    }
+
+    if (submission.filePath) {
+      const filePath = getFirebasePathFromUrl(submission.filePath);
+      const file = bucket.file(filePath);
+
+      const [exists] = await file.exists();
+      if (!exists) {
+        throw new AppError('Fichier non trouvé dans le stockage', 404);
+      }
+
+      const [metadata] = await file.getMetadata();
+
+      const fileStream = file.createReadStream();
+
+      return {
+        type: 'file',
+        fileStream: fileStream,
+        fileName: submission.fileName,
+        fileSize: submission.fileSize || metadata.size,
+        contentType: metadata.contentType || 'application/octet-stream'
+      };
+    }
+
+    throw new AppError('Aucun fichier trouvé pour cette soumission', 404);
+
+  } catch (error) {
+    console.error('Erreur downloadSubmissionFile:', error);
+    throw error;
+  }
+};
+
+const getFirebasePathFromUrl = (firebaseUrl) => {
+  try {
+    const url = new URL(firebaseUrl);
+    const pathParts = url.pathname.split('/');
+    return pathParts.slice(2).join('/');
+  } catch (error) {
+    const match = firebaseUrl.match(/\/o\/([^?]+)/);
+    return match ? decodeURIComponent(match[1]) : firebaseUrl;
+  }
+};
+
 const getDeliverableSummary = async (deliverableId) => {
   try {
     console.log('=== RECUPERATION RESUME LIVRABLE ===');
@@ -625,8 +750,8 @@ const getDeliverableSummary = async (deliverableId) => {
     const deliverable = await Deliverable.findByPk(deliverableId, {
       include: [
         { model: DeliverableRule, as: 'rules' },
-        { 
-          model: Project, 
+        {
+          model: Project,
           as: 'project',
           include: [
             {
@@ -650,8 +775,8 @@ const getDeliverableSummary = async (deliverableId) => {
     const submissions = await Submission.findAll({
       where: { deliverableId },
       include: [
-        { 
-          model: Group, 
+        {
+          model: Group,
           as: 'group',
           include: [
             { model: User, as: 'members' }
@@ -698,6 +823,8 @@ const getDeliverableSummary = async (deliverableId) => {
           validationStatus: submission.validationStatus,
           validationDetails: submission.validationDetails,
           similarityScore: submission.similarityScore || null,
+          fileName: submission.fileName,
+          fileSize: submission.fileSize,
           filePath: submission.filePath,
           gitUrl: submission.gitUrl
         };
@@ -748,6 +875,92 @@ const getDeliverableSummary = async (deliverableId) => {
   }
 };
 
+const deleteSubmission = async (submissionId, userId, userRole) => {
+  try {
+    const submission = await Submission.findByPk(submissionId, {
+      include: [
+        {
+          model: Group,
+          as: 'group',
+          include: [
+            { model: User, as: 'members' }
+          ]
+        },
+        {
+          model: Deliverable,
+          as: 'deliverable',
+          include: [
+            {
+              model: Project,
+              as: 'project'
+            }
+          ]
+        }
+      ]
+    });
+
+    if (!submission) {
+      throw new AppError('Soumission non trouvée', 404);
+    }
+
+    const isTeacher = userRole === 'teacher';
+    const isGroupMember = submission.group.members.some(member => member.id === userId);
+    const isProjectOwner = submission.deliverable.project.teacherId === userId;
+
+    if (!isTeacher && !isGroupMember && !isProjectOwner) {
+      throw new AppError('Vous n\'êtes pas autorisé à supprimer cette soumission', 403);
+    }
+
+    // Vérifier si la deadline est passée (seuls les enseignants peuvent supprimer après)
+    const now = new Date();
+    const deadline = new Date(submission.deliverable.deadline);
+    const canDeleteAfterDeadline = isTeacher || isProjectOwner;
+
+    if (now > deadline && !canDeleteAfterDeadline) {
+      throw new AppError('Impossible de supprimer la soumission après la deadline', 403);
+    }
+
+    // Supprimer le fichier de Firebase Storage si il existe
+    if (submission.filePath) {
+      try {
+        const filePath = getFirebasePathFromUrl(submission.filePath);
+        const file = bucket.file(filePath);
+
+        const [exists] = await file.exists();
+        if (exists) {
+          await file.delete();
+        } else {
+        }
+      } catch (firebaseError) {
+        // On continue même si la suppression Firebase échoue
+      }
+    }
+
+    // Sauvegarder les informations pour le retour
+    const deletedSubmissionInfo = {
+      id: submission.id,
+      fileName: submission.fileName,
+      submissionDate: submission.submissionDate,
+      groupName: submission.group.name,
+      deliverableName: submission.deliverable.title,
+      wasFileDeleted: !!submission.filePath,
+      wasGitSubmission: !!submission.gitUrl
+    };
+
+    // Supprimer la soumission de la base de données
+    await submission.destroy();
+
+    return {
+      message: 'Soumission supprimée avec succès',
+      deletedSubmission: deletedSubmissionInfo
+    };
+
+  } catch (error) {
+    console.error('Erreur deleteSubmission:', error);
+    throw error;
+  }
+};
+
 module.exports = {
   createDeliverable,
   getDeliverableById,
@@ -758,5 +971,7 @@ module.exports = {
   validateSubmission,
   analyzeSimilarity,
   getDeliverableSummary,
-  sendDeadlineReminders
+  sendDeadlineReminders,
+  downloadSubmissionFile,
+  deleteSubmission
 };
