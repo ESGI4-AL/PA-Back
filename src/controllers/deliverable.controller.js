@@ -1,6 +1,5 @@
 const deliverableService = require('../services/deliverable.service');
 const { asyncHandler } = require('../middlewares/error.middleware');
-const logger = require('../utils/logger');
 const { formatFileSize } = require('../utils/fileUtils');
 
 const createDeliverable = asyncHandler(async (req, res) => {
@@ -75,15 +74,6 @@ const submitDeliverable = asyncHandler(async (req, res) => {
   const submissionData = req.body;
   const { groupId } = req.body;
 
-  console.log('🎯 Début soumission livrable:', {
-    deliverableId: id,
-    groupId: groupId,
-    hasFile: !!req.file,
-    hasFirebaseUpload: !!req.firebaseUpload,
-    hasGitSubmission: !!req.gitSubmission,
-    bodyKeys: Object.keys(req.body)
-  });
-
   if (req.file) {
     const maxFileSize = 100 * 1024 * 1024; // 100MB
     if (req.file.size > maxFileSize) {
@@ -93,22 +83,10 @@ const submitDeliverable = asyncHandler(async (req, res) => {
         code: 'FILE_TOO_LARGE'
       });
     }
-
-    console.log('✅ Validation taille fichier réussie:', {
-      size: req.file.size,
-      sizeFormatted: `${(req.file.size / 1024 / 1024).toFixed(2)} MB`,
-      maxSize: `${maxFileSize / 1024 / 1024} MB`
-    });
   }
 
   const fileName = req.body.fileName;
   const fileSize = req.body.fileSize ? parseInt(req.body.fileSize) : null;
-
-  console.log('📋 Données de soumission:', {
-    fileName,
-    fileSize,
-    fileSizeFormatted: fileSize ? formatFileSize(fileSize) : 'N/A'
-  });
 
   if (req.gitSubmission) {
     const deliverable = await deliverableService.getDeliverableById(id);
@@ -164,11 +142,6 @@ const submitDeliverable = asyncHandler(async (req, res) => {
 
   if (req.firebaseUpload) {
     fileUrl = req.firebaseUpload.downloadUrl;
-    console.log('✅ Firebase upload détecté:', {
-      url: fileUrl,
-      fileName: req.firebaseUpload.fileName,
-      size: formatFileSize(req.firebaseUpload.size)
-    });
   }
 
   const deliverable = await deliverableService.getDeliverableById(id);
@@ -215,12 +188,6 @@ const submitDeliverable = asyncHandler(async (req, res) => {
       fileSize || req.firebaseUpload?.size
     );
 
-    console.log('✅ Soumission créée avec succès:', {
-      submissionId: submission.id,
-      fileName: submission.fileName,
-      fileSize: submission.fileSize
-    });
-
     res.status(200).json({
       status: 'success',
       message: 'Livrable soumis avec succès',
@@ -237,7 +204,6 @@ const submitDeliverable = asyncHandler(async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Erreur lors de la soumission:', error);
     return res.status(500).json({
       status: 'error',
       message: 'Erreur lors de la soumission du livrable',

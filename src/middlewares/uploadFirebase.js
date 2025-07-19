@@ -9,12 +9,6 @@ const upload = multer({
     fileSize: 100 * 1024 * 1024, // 100MB
   },
   fileFilter: (req, file, cb) => {
-    console.log('📁 Fichier reçu:', {
-      name: file.originalname,
-      type: file.mimetype,
-      // Remove size logging here - it's not available
-    });
-
     const allowedTypes = [
       'application/zip',
       'application/x-zip-compressed',
@@ -95,21 +89,15 @@ const uploadToFirebase = async (file, deliverable, group, project, customFileNam
       });
 
       stream.on('error', (error) => {
-        console.error('❌ Erreur lors du streaming:', error);
         reject(new Error(`Upload échoué: ${error.message}`));
       });
 
       stream.on('finish', async () => {
         try {
-          console.log('✅ Fichier uploadé, génération de l\'URL signée...');
-
-          // FIX: Add proper expiration date for signed URL
           const [downloadUrl] = await fileRef.getSignedUrl({
             action: 'read',
-            expires: Date.now() + (365 * 24 * 60 * 60 * 1000), // 1 year from now
+            expires: Date.now() + (365 * 24 * 60 * 60 * 1000),
           });
-
-          console.log('✅ URL signée générée avec succès');
 
           const result = {
             success: true,
@@ -125,17 +113,14 @@ const uploadToFirebase = async (file, deliverable, group, project, customFileNam
           resolve(result);
 
         } catch (error) {
-          console.error('❌ Erreur lors de la génération de l\'URL signée:', error);
           reject(new Error(`Erreur post-upload: ${error.message}`));
         }
       });
 
-      console.log('🔄 Début du streaming vers Firebase...');
       stream.end(file.buffer);
     });
 
   } catch (error) {
-    console.error('❌ Erreur générale upload Firebase:', error);
     throw new Error(`Upload échoué: ${error.message}`);
   }
 };
@@ -152,17 +137,7 @@ const uploadFirebase = (req, res, next) => {
       });
     }
 
-    // Log file info here where size is available
     if (req.file) {
-      console.log('📁 Fichier traité:', {
-        name: req.file.originalname,
-        type: req.file.mimetype,
-        size: formatFileSize(req.file.size), // Better formatting
-        sizeBytes: req.file.size, // Raw bytes for debugging
-        buffer_length: req.file.buffer.length
-      });
-
-      // Validate file size
       const maxFileSize = 100 * 1024 * 1024; // 100MB
       if (req.file.size > maxFileSize) {
         return res.status(413).json({
@@ -171,17 +146,11 @@ const uploadFirebase = (req, res, next) => {
           code: 'FILE_TOO_LARGE'
         });
       }
-
-      console.log('✅ Validation taille fichier réussie:', {
-        size: formatFileSize(req.file.size),
-        maxSize: formatFileSize(maxFileSize)
-      });
     }
 
     const gitUrl = req.body.gitUrl;
 
     if (gitUrl && !req.file) {
-      // Git submission logic...
       if (!validateGitUrl(gitUrl)) {
         return res.status(400).json({
           status: 'error',
@@ -231,19 +200,7 @@ const uploadFirebase = (req, res, next) => {
 
         const customFileName = req.body.fileName;
 
-        console.log('🚀 Début upload Firebase:', {
-          deliverable: deliverable.name,
-          group: group.name,
-          fileName: customFileName,
-          fileSize: formatFileSize(req.file.size)
-        });
-
         const result = await uploadToFirebase(req.file, deliverable, group, deliverable.project, customFileName);
-
-        console.log('✅ Upload Firebase réussi:', {
-          filePath: result.filePath,
-          size: formatFileSize(result.size)
-        });
 
         req.file.firebaseUrl = result.downloadUrl;
         req.firebaseUpload = result;
@@ -251,7 +208,6 @@ const uploadFirebase = (req, res, next) => {
         return next();
 
       } catch (error) {
-        console.error('❌ Erreur upload Firebase:', error);
         return res.status(500).json({
           status: 'error',
           message: 'Erreur lors de l\'upload vers Firebase Storage',

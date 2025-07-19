@@ -911,12 +911,20 @@ const deleteSubmission = async (submissionId, userId, userRole) => {
       throw new AppError('Vous n\'êtes pas autorisé à supprimer cette soumission', 403);
     }
 
-    // Vérifier si la deadline est passée (seuls les enseignants peuvent supprimer après)
+    // Vérifier si la deadline est passée
     const now = new Date();
     const deadline = new Date(submission.deliverable.deadline);
-    const canDeleteAfterDeadline = isTeacher || isProjectOwner;
+    const isAfterDeadline = now > deadline;
 
-    if (now > deadline && !canDeleteAfterDeadline) {
+    // Conditions pour pouvoir supprimer après la deadline :
+    // 1. Être enseignant ou propriétaire du projet
+    // 2. OU le livrable autorise les soumissions en retard
+    const canDeleteAfterDeadline =
+      isTeacher ||
+      isProjectOwner ||
+      submission.deliverable.allowLateSubmission;
+
+    if (isAfterDeadline && !canDeleteAfterDeadline) {
       throw new AppError('Impossible de supprimer la soumission après la deadline', 403);
     }
 

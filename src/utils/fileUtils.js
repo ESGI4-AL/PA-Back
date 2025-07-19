@@ -1,9 +1,5 @@
 /**
- * Utility functions for file operations
- */
-
-/**
- * Format file size in human readable format
+ * Format file size
  * @param {number} bytes - File size in bytes
  * @returns {string} Formatted file size
  */
