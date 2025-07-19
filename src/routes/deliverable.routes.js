@@ -6,9 +6,11 @@ const uploadFirebase = require('../middlewares/uploadFirebase');
 
 router.use(verifyToken);
 
-//ensi, and etud
+//enseignants et étudiants
 router.get('/:id', deliverableController.getDeliverableById);
 router.post('/:id/submit', uploadFirebase, deliverableController.submitDeliverable);
+router.get('/submissions/:submissionId/download', deliverableController.downloadSubmissionFile);
+router.delete('/submissions/:submissionId', deliverableController.deleteSubmission);
 
 //only teacher
 router.use(isTeacher);
