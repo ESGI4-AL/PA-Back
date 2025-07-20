@@ -229,9 +229,35 @@ const getDeliverableSummary = asyncHandler(async (req, res) => {
 
   const summary = await deliverableService.getDeliverableSummary(id, teacherId);
 
+  // Ajouter des informations d'intégrité dans la réponse
+  let missingFilesCount = 0;
+  let totalFilesCount = 0;
+  const missingFiles = [];
+
+  summary.groupSummaries.forEach(groupSummary => {
+    if (groupSummary.submission && groupSummary.submission.filePath && !groupSummary.submission.gitUrl) {
+      totalFilesCount++;
+      if (groupSummary.submission.fileExists === false) {
+        missingFilesCount++;
+        missingFiles.push({
+          groupName: groupSummary.group.name,
+          fileName: groupSummary.submission.fileName,
+          submissionId: groupSummary.submission.id
+        });
+      }
+    }
+  });
+
   res.status(200).json({
     status: 'success',
-    data: summary
+    data: summary,
+    integrity: {
+      totalFiles: totalFilesCount,
+      missingFiles: missingFilesCount,
+      integrityScore: totalFilesCount > 0 ? Math.round(((totalFilesCount - missingFilesCount) / totalFilesCount) * 100) : 100,
+      missingFilesList: missingFiles,
+      hasIssues: missingFilesCount > 0
+    }
   });
 });
 
@@ -346,6 +372,105 @@ const deleteSubmission = asyncHandler(async (req, res) => {
   }
 });
 
+const cleanMissingFiles = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const result = await deliverableService.cleanMissingFiles(id);
+
+    res.status(200).json({
+      status: 'success',
+      message: `Nettoyage terminé: ${result.cleanedCount} fichier(s) manquant(s) nettoyé(s)`,
+      data: result
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      status: 'error',
+      message: 'Erreur lors du nettoyage des fichiers manquants',
+      error: error.message
+    });
+  }
+});
+
+// Endpoint pour obtenir un rapport d'intégrité simple
+const getFileIntegrityReport = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const summary = await deliverableService.getDeliverableSummary(id);
+
+    const report = {
+      deliverableId: id,
+      deliverableName: summary.deliverable.name,
+      timestamp: new Date().toISOString(),
+      files: [],
+      summary: {
+        totalSubmissions: 0,
+        filesWithIssues: 0,
+        gitSubmissions: 0,
+        validFiles: 0
+      }
+    };
+
+    summary.groupSummaries.forEach(groupSummary => {
+      if (groupSummary.submission) {
+        report.summary.totalSubmissions++;
+
+        if (groupSummary.submission.gitUrl) {
+          report.summary.gitSubmissions++;
+          report.files.push({
+            groupName: groupSummary.group.name,
+            fileName: groupSummary.submission.fileName || 'Repository Git',
+            type: 'git',
+            status: 'ok',
+            fileExists: true
+          });
+        } else if (groupSummary.submission.filePath) {
+          const hasIssue = groupSummary.submission.fileExists === false;
+
+          if (hasIssue) {
+            report.summary.filesWithIssues++;
+          } else {
+            report.summary.validFiles++;
+          }
+
+          report.files.push({
+            groupName: groupSummary.group.name,
+            fileName: groupSummary.submission.fileName,
+            type: 'file',
+            status: hasIssue ? 'missing' : 'ok',
+            fileExists: groupSummary.submission.fileExists,
+            filePath: groupSummary.submission.filePath
+          });
+        }
+      }
+    });
+
+    // Trier les fichiers problématiques en premier
+    report.files.sort((a, b) => {
+      if (a.status === 'missing' && b.status !== 'missing') return -1;
+      if (a.status !== 'missing' && b.status === 'missing') return 1;
+      return a.groupName.localeCompare(b.groupName);
+    });
+
+    res.status(200).json({
+      status: 'success',
+      data: report,
+      message: report.summary.filesWithIssues > 0
+        ? `⚠️ ${report.summary.filesWithIssues} fichier(s) manquant(s) détecté(s)`
+        : '✅ Tous les fichiers sont présents'
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      status: 'error',
+      message: 'Erreur lors de la génération du rapport d\'intégrité',
+      error: error.message
+    });
+  }
+});
+
 module.exports = {
   createDeliverable,
   getDeliverableById,
@@ -357,5 +482,7 @@ module.exports = {
   getDeliverableSummary,
   sendDeadlineReminders,
   downloadSubmissionFile,
-  deleteSubmission
+  deleteSubmission,
+  cleanMissingFiles,
+  getFileIntegrityReport
 };

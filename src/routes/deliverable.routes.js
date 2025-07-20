@@ -18,6 +18,8 @@ router.put('/:id', uploadFirebase, deliverableController.updateDeliverable);
 router.delete('/:id', deliverableController.deleteDeliverable);
 router.post('/:id/analyze', deliverableController.analyzeSimilarity);
 router.get('/:id/summary', deliverableController.getDeliverableSummary);
+router.get('/:id/integrity-report', deliverableController.getFileIntegrityReport);
+router.post('/:id/clean-missing-files', deliverableController.cleanMissingFiles);
 router.post('/send-reminders', deliverableController.sendDeadlineReminders);
 
 module.exports = router;
