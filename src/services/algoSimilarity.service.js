@@ -78,8 +78,6 @@ const detectFileType = (fileName) => {
   return 'binary';
 };
 
-//ALGO ICI
-
 //similarite par Hash MD5 (détection  pour copie exacte)
 const hashSimilarity = async (file1Path, file2Path) => {
   try {
@@ -312,8 +310,11 @@ const analyzeFileSimilarity = async (file1Path, file2Path) => {
   const fileName1 = path.basename(file1Path);
   const fileName2 = path.basename(file2Path);
 
-  const type1 = detectFileType(fileName1);
-  const type2 = detectFileType(fileName2);
+  // Détection de type plus robuste
+  const type1 = detectFileTypeRobust(fileName1, file1Path);
+  const type2 = detectFileTypeRobust(fileName2, file2Path);
+
+  console.log('Types détectés:', { type1, type2, fileName1, fileName2 });
 
   const results = {
     file1: fileName1,
@@ -384,6 +385,35 @@ const analyzeFileSimilarity = async (file1Path, file2Path) => {
   return results;
 };
 
+const detectFileTypeRobust = (fileName, filePath) => {
+  const ext = path.extname(fileName).toLowerCase();
+
+  // Vérifier d'abord par extension
+  if (['.zip', '.rar', '.tar', '.gz', '.7z', '.tar.gz'].some(archiveExt =>
+    fileName.toLowerCase().endsWith(archiveExt))) {
+    console.log(`Archive détectée par extension: ${fileName}`);
+    return 'archive';
+  }
+
+  // Vérifier par nom de fichier (cas où l'extension manque)
+  if (filePath && (filePath.includes('.zip') || filePath.includes('.rar') || filePath.includes('.tar'))) {
+    console.log(`Archive détectée par chemin: ${filePath}`);
+    return 'archive';
+  }
+
+  // Types texte
+  if (['.txt', '.md', '.json', '.js', '.py', '.java', '.c', '.cpp', '.html', '.css', '.ts', '.jsx', '.tsx'].includes(ext)) {
+    return 'text';
+  }
+
+  // Types documents
+  if (['.pdf', '.doc', '.docx'].includes(ext)) {
+    return 'document';
+  }
+
+  return 'binary';
+};
+
 module.exports = {
   analyzeFileSimilarity,
   hashSimilarity,
@@ -392,6 +422,7 @@ module.exports = {
   structureSimilarity,
   detectFileType,
   downloadFile,
+  levenshteinDistance,
   MAX_FILE_SIZE,
   SIMILARITY_THRESHOLD
 };

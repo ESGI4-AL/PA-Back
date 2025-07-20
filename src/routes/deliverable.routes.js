@@ -6,18 +6,20 @@ const uploadFirebase = require('../middlewares/uploadFirebase');
 
 router.use(verifyToken);
 
-//enseignants et étudiants
 router.get('/:id', deliverableController.getDeliverableById);
 router.post('/:id/submit', uploadFirebase, deliverableController.submitDeliverable);
 router.get('/submissions/:submissionId/download', deliverableController.downloadSubmissionFile);
 router.get('/submissions/:submissionId/content', deliverableController.getSubmissionContent);
 router.delete('/submissions/:submissionId', deliverableController.deleteSubmission);
 
-//only teacher
+router.post('/archive-file-content', deliverableController.getArchiveFileContent);
+
 router.use(isTeacher);
+
 router.put('/:id', uploadFirebase, deliverableController.updateDeliverable);
 router.delete('/:id', deliverableController.deleteDeliverable);
 router.post('/:id/analyze', deliverableController.analyzeSimilarity);
+router.post('/analyze-deep', deliverableController.analyzeArchivesSimilarity);
 router.get('/:id/summary', deliverableController.getDeliverableSummary);
 router.get('/:id/integrity-report', deliverableController.getFileIntegrityReport);
 router.post('/:id/clean-missing-files', deliverableController.cleanMissingFiles);
