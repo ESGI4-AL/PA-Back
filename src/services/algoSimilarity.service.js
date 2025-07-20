@@ -1,9 +1,22 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { bucket } = require('../utils/firebase');
+const { bucket } = require('../../config/firebase-admin');
 const { Deliverable, Submission } = require('../models');
 const { AppError } = require('../middlewares/error.middleware');
+
+// Fonction pour extraire le chemin Firebase d'une URL
+const getFirebasePathFromUrl = (firebaseUrl) => {
+  try {
+    const url = new URL(firebaseUrl);
+    const pathParts = url.pathname.split('/');
+    return pathParts.slice(2).join('/');
+  } catch (error) {
+    const match = firebaseUrl.match(/\/o\/([^?]+)/);
+    return match ? decodeURIComponent(match[1]) : firebaseUrl;
+  }
+};
+
 
 //config= commentaire a garder lors du clean code, important, en francais expres pour me retrouver
 const MAX_FILE_SIZE = 10 * 1024 * 1024; //10MB
@@ -20,42 +33,39 @@ const downloadFile = async (filePath) => {
     if (filePath.startsWith('http') && !filePath.includes('firebase') && !filePath.includes('googleapis.com')) {
       console.log('URL Git detectee, simulation du contenu...');
       const mockContent = `# Repository: ${filePath}\n# Simulated content for similarity analysis\nfunction main() {\n  console.log("Hello from ${path.basename(filePath)}");\n}`;
-      return Buffer.from(mockContent, 'utf-8');
+      return { buffer: Buffer.from(mockContent, 'utf-8'), contentType: 'text/plain' };
     }
 
     if (!filePath.includes('firebase') && !filePath.includes('googleapis.com')) {
       throw new Error('URL Firebase non reconnue');
     }
 
-    const encodedPath = filePath.split('/o/')[1]?.split('?')[0];
-    if (!encodedPath) {
-      throw new Error('Format URL Firebase incorrect');
-    }
-
-    const decodedPath = decodeURIComponent(encodedPath);
+    // Utiliser la fonction commune pour parser l'URL Firebase
+    const decodedPath = getFirebasePathFromUrl(filePath);
     const file = bucket.file(decodedPath);
-    
+
     const [exists] = await file.exists();
     if (!exists) {
       throw new Error('Fichier non trouvé dans Firebase Storage');
     }
 
     const [buffer] = await file.download();
-    
+    const [metadata] = await file.getMetadata();
+
     if (buffer.length > MAX_FILE_SIZE) {
       throw new Error(`Fichier trop volumineux: ${buffer.length} bytes (max: ${MAX_FILE_SIZE})`);
     }
 
-    return buffer;
+    return { buffer, contentType: metadata.contentType || 'application/octet-stream' };
   } catch (error) {
     throw new Error(`Erreur téléchargement: ${error.message}`);
   }
 };
 
-//ici on detecte le type de fichier 
+//ici on detecte le type de fichier
 const detectFileType = (fileName) => {
   const ext = path.extname(fileName).toLowerCase();
-  
+
   if (['.txt', '.md', '.json', '.js', '.py', '.java', '.c', '.cpp', '.html', '.css', '.ts', '.jsx', '.tsx'].includes(ext)) {
     return 'text';
   }
@@ -68,14 +78,14 @@ const detectFileType = (fileName) => {
   return 'binary';
 };
 
-//ALGO ICI 
+//ALGO ICI
 
 //similarite par Hash MD5 (détection  pour copie exacte)
 const hashSimilarity = async (file1Path, file2Path) => {
   try {
     const [buffer1, buffer2] = await Promise.all([
-      downloadFile(file1Path),
-      downloadFile(file2Path)
+      (await downloadFile(file1Path)).buffer,
+      (await downloadFile(file2Path)).buffer
     ]);
 
     const hash1 = crypto.createHash('md5').update(buffer1).digest('hex');
@@ -106,10 +116,10 @@ const levenshteinDistance = (str1, str2) => {
   }
 
   const matrix = Array(str2.length + 1).fill().map(() => Array(str1.length + 1).fill(0));
-  
+
   for (let i = 0; i <= str1.length; i++) matrix[0][i] = i;
   for (let j = 0; j <= str2.length; j++) matrix[j][0] = j;
-  
+
   for (let j = 1; j <= str2.length; j++) {
     for (let i = 1; i <= str1.length; i++) {
       if (str1[i - 1] === str2[j - 1]) {
@@ -123,7 +133,7 @@ const levenshteinDistance = (str1, str2) => {
       }
     }
   }
-  
+
   return matrix[str2.length][str1.length];
 };
 
@@ -131,8 +141,8 @@ const levenshteinDistance = (str1, str2) => {
 const textSimilarity = async (file1Path, file2Path) => {
   try {
     const [buffer1, buffer2] = await Promise.all([
-      downloadFile(file1Path),
-      downloadFile(file2Path)
+      (await downloadFile(file1Path)).buffer,
+      (await downloadFile(file2Path)).buffer
     ]);
 
     const text1 = buffer1.toString('utf-8').toLowerCase().trim();
@@ -164,8 +174,8 @@ const textSimilarity = async (file1Path, file2Path) => {
 const ngramSimilarity = async (file1Path, file2Path, n = 3) => {
   try {
     const [buffer1, buffer2] = await Promise.all([
-      downloadFile(file1Path),
-      downloadFile(file2Path)
+      (await downloadFile(file1Path)).buffer,
+      (await downloadFile(file2Path)).buffer
     ]);
 
     let text1 = buffer1.toString('utf-8').toLowerCase().replace(/\s+/g, ' ').trim();
@@ -211,21 +221,21 @@ const ngramSimilarity = async (file1Path, file2Path, n = 3) => {
 const structureSimilarity = async (file1Path, file2Path) => {
   try {
     const [buffer1, buffer2] = await Promise.all([
-      downloadFile(file1Path),
-      downloadFile(file2Path)
+      (await downloadFile(file1Path)).buffer,
+      (await downloadFile(file2Path)).buffer
     ]);
 
     const getFileStructure = (buffer) => {
       const size = buffer.length;
       const hash = crypto.createHash('md5').update(buffer.slice(0, 1024)).digest('hex');
-      
+
       //analyse des bytes
       const chunks = [];
       for (let i = 0; i < Math.min(buffer.length, 1024); i += 256) {
         const chunk = buffer.slice(i, i + 256);
         chunks.push(crypto.createHash('md5').update(chunk).digest('hex').substring(0, 8));
       }
-      
+
       return { size, headerHash: hash, patterns: chunks };
     };
 
@@ -301,7 +311,7 @@ const analyzeFileSimilarity = async (file1Path, file2Path) => {
 
   const fileName1 = path.basename(file1Path);
   const fileName2 = path.basename(file2Path);
-  
+
   const type1 = detectFileType(fileName1);
   const type2 = detectFileType(fileName2);
 
@@ -335,24 +345,24 @@ const analyzeFileSimilarity = async (file1Path, file2Path) => {
         textSimilarity(file1Path, file2Path),
         ngramSimilarity(file1Path, file2Path, 4)
       ]);
-      
+
       results.algorithms.push(textResult, ngramResult);
-      
+
       //score moyen, pondere 40% texte, 60% n grammes, c'est le mieu je pense
       results.finalScore = (textResult.score * 0.4) + (ngramResult.score * 0.6);
       results.recommendedMethod = 'hybrid_text';
-      
+
     } else if (type1 === 'archive' && type2 === 'archive') {
       //pour les archives : structure + n-grammes
       const [structResult, ngramResult] = await Promise.all([
         structureSimilarity(file1Path, file2Path),
         ngramSimilarity(file1Path, file2Path, 5)
       ]);
-      
+
       results.algorithms.push(structResult, ngramResult);
       results.finalScore = (structResult.score * 0.6) + (ngramResult.score * 0.4);
       results.recommendedMethod = 'hybrid_archive';
-      
+
     } else {
       //si types différents ou non supportés : uniquement ngramme
       const ngramResult = await ngramSimilarity(file1Path, file2Path, 3);
@@ -361,7 +371,7 @@ const analyzeFileSimilarity = async (file1Path, file2Path) => {
       results.recommendedMethod = 'ngram';
     }
 
-    //score en 0 - 1 
+    //score en 0 - 1
     results.finalScore = Math.max(0, Math.min(1, results.finalScore));
 
   } catch (error) {

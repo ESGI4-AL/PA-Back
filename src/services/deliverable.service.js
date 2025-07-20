@@ -1080,5 +1080,6 @@ module.exports = {
   sendDeadlineReminders,
   downloadSubmissionFile,
   deleteSubmission,
-  cleanMissingFiles
+  cleanMissingFiles,
+  getFirebasePathFromUrl
 };

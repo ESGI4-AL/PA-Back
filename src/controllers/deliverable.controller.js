@@ -1,6 +1,7 @@
 const deliverableService = require('../services/deliverable.service');
 const { asyncHandler } = require('../middlewares/error.middleware');
 const { formatFileSize } = require('../utils/fileUtils');
+const { Submission, Group } = require('../models');
 
 const createDeliverable = asyncHandler(async (req, res) => {
   const { id } = req.params;
@@ -221,6 +222,91 @@ const analyzeSimilarity = asyncHandler(async (req, res) => {
     status: 'success',
     data: result
   });
+});
+
+const getSubmissionContent = asyncHandler(async (req, res) => {
+  const { submissionId } = req.params;
+
+  try {
+    // Récupérer la soumission
+    const submission = await Submission.findByPk(submissionId, {
+      include: [{ model: Group, as: 'group' }]
+    });
+    console.log('Submission:', submission);
+    if (!submission) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Soumission non trouvée'
+      });
+    }
+
+    let content = '';
+    let fileName = submission.fileName || 'unknown';
+    let language = 'plaintext';
+
+    if (submission.gitUrl) {
+      // Pour les URLs Git
+      content = `# Repository: ${submission.gitUrl}\n# Contenu Git - aperçu non disponible\n# Utilisez le lien ci-dessus pour accéder au dépôt`;
+      language = 'markdown';
+    } else if (submission.filePath) {
+      try {
+        // Utiliser ta fonction existante downloadFile
+        const { downloadFile } = require('../services/algoSimilarity.service');
+        const { buffer, contentType} = await downloadFile(submission.filePath);
+        console.log("contentType:", contentType);
+
+        if (contentType === 'application/x-zip-compressed' || contentType === 'application/zip') {
+
+        }
+
+        // Vérifier si c'est un fichier texte
+        const isTextFile = (fileName) => {
+          const textExtensions = ['.txt', '.md', '.js', '.ts', '.jsx', '.tsx', '.py', '.java', '.c', '.cpp', '.cs', '.php', '.rb', '.go', '.rs', '.css', '.html', '.json', '.xml', '.yaml', '.yml', '.sql'];
+          return textExtensions.some(ext => fileName.toLowerCase().endsWith(ext));
+        };
+
+        if (isTextFile(fileName)) {
+          content = buffer.toString('utf-8');
+
+          // Détecter le langage
+          const ext = fileName.split('.').pop()?.toLowerCase();
+          const languageMap = {
+            'js': 'javascript', 'jsx': 'javascript', 'ts': 'typescript', 'tsx': 'typescript',
+            'py': 'python', 'java': 'java', 'c': 'c', 'cpp': 'cpp', 'cs': 'csharp',
+            'php': 'php', 'rb': 'ruby', 'go': 'go', 'rs': 'rust', 'css': 'css',
+            'html': 'html', 'json': 'json', 'md': 'markdown', 'txt': 'plaintext'
+          };
+          language = languageMap[ext] || 'plaintext';
+        } else {
+          content = `// Fichier binaire ou archive: ${fileName}\n// Aperçu non disponible\n// Taille: ${buffer.length} bytes`;
+          language = 'plaintext';
+        }
+      } catch (error) {
+        console.error('Erreur lecture fichier:', error);
+        content = `// Erreur lors de la lecture du fichier: ${fileName}\n// ${error.message}`;
+      }
+    } else {
+      content = '// Aucun fichier disponible pour cette soumission';
+    }
+
+    res.json({
+      status: 'success',
+      data: {
+        content,
+        fileName,
+        language,
+        fileSize: submission.fileSize,
+        submissionDate: submission.submissionDate
+      }
+    });
+
+  } catch (error) {
+    console.error('Erreur getSubmissionContent:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Erreur serveur lors de la récupération du contenu'
+    });
+  }
 });
 
 const getDeliverableSummary = asyncHandler(async (req, res) => {
@@ -484,5 +570,6 @@ module.exports = {
   downloadSubmissionFile,
   deleteSubmission,
   cleanMissingFiles,
+  getSubmissionContent,
   getFileIntegrityReport
 };

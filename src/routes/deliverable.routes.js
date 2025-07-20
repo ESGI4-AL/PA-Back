@@ -10,6 +10,7 @@ router.use(verifyToken);
 router.get('/:id', deliverableController.getDeliverableById);
 router.post('/:id/submit', uploadFirebase, deliverableController.submitDeliverable);
 router.get('/submissions/:submissionId/download', deliverableController.downloadSubmissionFile);
+router.get('/submissions/:submissionId/content', deliverableController.getSubmissionContent);
 router.delete('/submissions/:submissionId', deliverableController.deleteSubmission);
 
 //only teacher
@@ -21,5 +22,4 @@ router.get('/:id/summary', deliverableController.getDeliverableSummary);
 router.get('/:id/integrity-report', deliverableController.getFileIntegrityReport);
 router.post('/:id/clean-missing-files', deliverableController.cleanMissingFiles);
 router.post('/send-reminders', deliverableController.sendDeadlineReminders);
-
 module.exports = router;
