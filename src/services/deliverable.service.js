@@ -66,21 +66,44 @@ const getProjectDeliverables = async (projectId, userId = null) => {
     order: [['deadline', 'ASC']]
   });
 
+  // Vérifier l'existence des fichiers pour toutes les soumissions
+  const deliverablesList = [];
+
+  for (const deliverable of deliverables) {
+    const deliverableData = deliverable.toJSON();
+
+    // Vérifier l'existence des fichiers pour chaque soumission
+    for (const submission of deliverableData.submissions) {
+      if (submission.filePath && !submission.gitUrl) {
+        const fileExists = await checkFileExists(submission.filePath);
+        submission.fileExists = fileExists;
+
+        if (!fileExists) {
+          console.warn(`⚠️ Fichier manquant détecté: ${submission.fileName} (Livrable: ${deliverable.name})`);
+        }
+      } else if (submission.gitUrl) {
+        submission.fileExists = true; // Les soumissions Git sont considérées comme existantes
+      }
+    }
+
+    deliverablesList.push(deliverableData);
+  }
+
   // Si un userId est fourni (étudiant), filtrer les soumissions pour ne garder que celles de son groupe
   if (userId) {
-    return deliverables.map(deliverable => {
+    return deliverablesList.map(deliverable => {
       const userSubmissions = deliverable.submissions.filter(submission =>
         submission.group.members.some(member => member.id === userId)
       );
 
       return {
-        ...deliverable.toJSON(),
+        ...deliverable,
         submissions: userSubmissions
       };
     });
   }
 
-  return deliverables;
+  return deliverablesList;
 };
 
 const updateDeliverable = async (deliverableId, updateData, teacherId) => {
@@ -741,6 +764,69 @@ const getFirebasePathFromUrl = (firebaseUrl) => {
   }
 };
 
+// Fonction simple pour vérifier si un fichier existe dans Firebase
+const checkFileExists = async (firebaseUrl) => {
+  try {
+    if (!firebaseUrl) return false;
+    const filePath = getFirebasePathFromUrl(firebaseUrl);
+    const file = bucket.file(filePath);
+    const [exists] = await file.exists();
+    return exists;
+  } catch (error) {
+    console.error('Erreur vérification fichier:', error);
+    return false;
+  }
+};
+
+// Fonction simple pour nettoyer les fichiers manquants d'un livrable
+const cleanMissingFiles = async (deliverableId) => {
+  try {
+    console.log('🧹 Nettoyage des fichiers manquants pour le livrable:', deliverableId);
+
+    const submissions = await Submission.findAll({
+      where: { deliverableId },
+      include: [{ model: Group, as: 'group' }]
+    });
+
+    let cleanedCount = 0;
+
+    for (const submission of submissions) {
+      if (submission.filePath && !submission.gitUrl) {
+        const exists = await checkFileExists(submission.filePath);
+
+        if (!exists) {
+          console.log(`❌ Nettoyage: ${submission.fileName} (Groupe: ${submission.group?.name})`);
+
+          // Nettoyer les références du fichier manquant
+          await submission.update({
+            filePath: null,
+            fileName: null,
+            fileSize: null,
+            validationStatus: 'invalid',
+            validationDetails: {
+              valid: false,
+              details: [{
+                rule: 'file_integrity',
+                valid: false,
+                message: 'Fichier supprimé - introuvable dans Firebase Storage'
+              }]
+            }
+          });
+
+          cleanedCount++;
+        }
+      }
+    }
+
+    console.log(`✅ Nettoyage terminé: ${cleanedCount} soumission(s) nettoyée(s)`);
+    return { cleanedCount, totalChecked: submissions.length };
+
+  } catch (error) {
+    console.error('Erreur lors du nettoyage:', error);
+    throw new AppError('Erreur lors du nettoyage des fichiers manquants', 500);
+  }
+};
+
 const getDeliverableSummary = async (deliverableId) => {
   try {
     console.log('=== RECUPERATION RESUME LIVRABLE ===');
@@ -797,7 +883,9 @@ const getDeliverableSummary = async (deliverableId) => {
     console.log('Groupes du projet:', allGroups.length);
 
     //summary pour chaque groupe
-    const groupSummaries = allGroups.map(group => {
+    const groupSummaries = [];
+
+    for (const group of allGroups) {
       const submission = submissions.find(s => s.groupId === group.id);
 
       const groupSummary = {
@@ -815,6 +903,15 @@ const getDeliverableSummary = async (deliverableId) => {
       };
 
       if (submission) {
+        // Vérifier si le fichier existe encore dans Firebase
+        let fileExists = true;
+        if (submission.filePath && !submission.gitUrl) {
+          fileExists = await checkFileExists(submission.filePath);
+          if (!fileExists) {
+            console.warn(`⚠️ Fichier manquant: ${submission.fileName} (Groupe: ${group.name})`);
+          }
+        }
+
         groupSummary.submission = {
           id: submission.id,
           submissionDate: submission.submissionDate,
@@ -826,12 +923,13 @@ const getDeliverableSummary = async (deliverableId) => {
           fileName: submission.fileName,
           fileSize: submission.fileSize,
           filePath: submission.filePath,
-          gitUrl: submission.gitUrl
+          gitUrl: submission.gitUrl,
+          fileExists: fileExists // Ajouter l'information d'existence
         };
       }
 
-      return groupSummary;
-    });
+      groupSummaries.push(groupSummary);
+    }
 
     //stats calcule
     const submittedGroups = groupSummaries.filter(g => g.submission !== null);
@@ -981,5 +1079,7 @@ module.exports = {
   getDeliverableSummary,
   sendDeadlineReminders,
   downloadSubmissionFile,
-  deleteSubmission
+  deleteSubmission,
+  cleanMissingFiles,
+  getFirebasePathFromUrl
 };
