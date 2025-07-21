@@ -73,6 +73,39 @@ const getAllPromotions = async (filters = {}) => {
   };
 };
 
+const getMyPromotion = async (userId) => {
+  const user = await User.findByPk(userId, {
+    attributes: ['id', 'firstName', 'lastName', 'email', 'promotionId', 'role']
+  });
+
+  if (!user) {
+    throw new AppError('User not found', 404);
+  }
+
+  if (!user.promotionId) {
+    throw new AppError('User is not assigned to any promotion', 404);
+  }
+
+  // Récupérer la promotion avec tous ses étudiants
+  const promotion = await Promotion.findByPk(user.promotionId, {
+    include: [
+      {
+        model: User,
+        as: 'students',
+        attributes: ['id', 'firstName', 'lastName', 'email', 'isActive'],
+        where: { isActive: true },
+        required: false
+      }
+    ]
+  });
+
+  if (!promotion) {
+    throw new AppError('Promotion not found', 404);
+  }
+
+  return promotion;
+};
+
 const updatePromotion = async (id, updateData) => {
   const promotion = await Promotion.findByPk(id);
 
@@ -244,6 +277,7 @@ module.exports = {
   createPromotion,
   getPromotionById,
   getAllPromotions,
+  getMyPromotion,
   updatePromotion,
   deletePromotion,
   updateStudentInPromotion,
