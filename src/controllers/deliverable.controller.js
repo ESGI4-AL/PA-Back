@@ -446,7 +446,7 @@ const compareArchivesInDetail = async (archive1Path, archive2Path) => {
     const globalScore = (structuralSimilarity * 0.3) + (averageFileScore * 0.7);
 
     // 4. IDENTIFICATION DES FICHIERS SUSPECTS
-    const suspiciousFiles = fileComparisons.filter(comp => comp.bestScore >= 0.8);
+    const suspiciousFiles = fileComparisons.filter(comp => comp.bestScore >= 0.6);
 
     const result = {
       archive1: extractFileNameFromUrl(archive1Path),
