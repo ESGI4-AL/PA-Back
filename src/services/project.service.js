@@ -229,8 +229,10 @@ const getMyProjects = async (studentId, filters = {}) => {
 
   const projectsWithGroupInfo = projects.map(project => {
     const projectData = project.toJSON();
+
+    // Trouver le groupe où l'étudiant est membre
     const myGroup = project.groups?.find(group =>
-      group.members && group.members.length > 0
+      group.members && group.members.some(member => member.id === studentId)
     );
 
     if (myGroup) {

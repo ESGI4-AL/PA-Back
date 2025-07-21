@@ -93,6 +93,7 @@ const getProjectDeliverables = async (projectId, userId = null) => {
   if (userId) {
     return deliverablesList.map(deliverable => {
       const userSubmissions = deliverable.submissions.filter(submission =>
+        submission.group && submission.group.members &&
         submission.group.members.some(member => member.id === userId)
       );
 
