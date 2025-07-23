@@ -5,9 +5,9 @@ const { Group, Project, User } = require('../models'); // Ajout de User ici !
 const createGroup = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const groupData = req.body;
-  
+
   const group = await groupService.createGroup(id, groupData);
-  
+
   res.status(201).json({
     status: 'success',
     message: 'Group created successfully',
@@ -17,9 +17,9 @@ const createGroup = asyncHandler(async (req, res) => {
 
 const getGroupById = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  
+
   const group = await groupService.getGroupById(id);
-  
+
   res.status(200).json({
     status: 'success',
     data: group
@@ -28,9 +28,9 @@ const getGroupById = asyncHandler(async (req, res) => {
 
 const getProjectGroups = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  
+
   const groups = await groupService.getProjectGroups(id);
-  
+
   res.status(200).json({
     status: 'success',
     data: groups
@@ -40,9 +40,9 @@ const getProjectGroups = asyncHandler(async (req, res) => {
 const addMemberToGroup = asyncHandler(async (req, res) => {
   const { id, memberId } = req.params;
   const isTeacher = req.user.role === 'teacher';
-  
+
   const result = await groupService.addMemberToGroup(id, memberId, isTeacher);
-  
+
   res.status(200).json({
     status: 'success',
     message: result.message
@@ -52,9 +52,9 @@ const addMemberToGroup = asyncHandler(async (req, res) => {
 const removeMemberFromGroup = asyncHandler(async (req, res) => {
   const { id, memberId } = req.params;
   const isTeacher = req.user.role === 'teacher';
-  
+
   const result = await groupService.removeMemberFromGroup(id, memberId, isTeacher);
-  
+
   res.status(200).json({
     status: 'success',
     message: result.message
@@ -74,8 +74,8 @@ const getUserGroupForProject = asyncHandler(async (req, res) => {
 
     if (!userGroup) {
       console.log(`ℹ️ Contrôleur - Utilisateur ${userId} non assigné à un groupe pour le projet ${projectId}`);
-      return res.status(404).json({
-        status: 'error',
+      return res.status(200).json({
+        status: 'success',
         message: 'Utilisateur non assigné à un groupe pour ce projet',
         data: null
       });
@@ -96,12 +96,12 @@ const getUserGroupForProject = asyncHandler(async (req, res) => {
 });
 
 const createGroupByStudent = asyncHandler(async (req, res) => {
-  const { id } = req.params; 
+  const { id } = req.params;
   const groupData = req.body;
   const studentId = req.user.id;
-  
+
   const group = await groupService.createGroupByStudent(id, groupData, studentId);
-  
+
   res.status(201).json({
     status: 'success',
     message: 'Group created successfully',
@@ -110,10 +110,10 @@ const createGroupByStudent = asyncHandler(async (req, res) => {
 });
 
 const assignRemainingStudents = asyncHandler(async (req, res) => {
-  const { id } = req.params; 
-  
+  const { id } = req.params;
+
   const result = await groupService.assignRemainingStudents(id);
-  
+
   res.status(200).json({
     status: 'success',
     message: result.message,
@@ -135,9 +135,9 @@ const getGroupProject = asyncHandler(async (req, res) => {
 const deleteGroup = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const isTeacher = req.user.role === 'teacher';
-  
+
   const result = await groupService.deleteGroup(id, isTeacher);
-  
+
   res.status(200).json({
     status: 'success',
     message: result.message || 'Group deleted successfully'
@@ -148,9 +148,9 @@ const updateGroup = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const updateData = req.body;
   const isTeacher = req.user.role === 'teacher';
-  
+
   const updatedGroup = await groupService.updateGroup(id, updateData, isTeacher);
-  
+
   res.status(200).json({
     status: 'success',
     message: 'Group updated successfully',
@@ -160,9 +160,9 @@ const updateGroup = asyncHandler(async (req, res) => {
 
 const getPromotionStudents = asyncHandler(async (req, res) => {
   const { promotionId } = req.params;
-  
+
   const students = await groupService.getPromotionStudents(promotionId);
-  
+
   res.status(200).json({
     success: true,
     data: {
