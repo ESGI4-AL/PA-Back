@@ -42,6 +42,17 @@ const getAllPromotions = asyncHandler(async (req, res) => {
   });
 });
 
+const getMyPromotion = asyncHandler(async (req, res) => {
+  const userId = req.user.id;
+
+  const result = await promotionService.getMyPromotion(userId);
+
+  res.status(200).json({
+    status: 'success',
+    data: result
+  });
+});
+
 const updatePromotion = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const updateData = req.body;
@@ -180,6 +191,7 @@ module.exports = {
   createPromotion,
   getPromotionById,
   getAllPromotions,
+  getMyPromotion,
   updatePromotion,
   deletePromotion,
   addStudentToPromotion,

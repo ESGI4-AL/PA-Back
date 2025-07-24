@@ -8,6 +8,7 @@ const { upload, handleMulterErrors } = require('../middlewares/upload.middleware
 
 router.use(verifyToken);
 router.get('/', promotionController.getAllPromotions);
+router.get('/my-promotion', promotionController.getMyPromotion);
 router.get('/:id', promotionController.getPromotionById);
 router.use(isTeacher);
 router.post('/', promotionValidationRules.create, validate, promotionController.createPromotion);

@@ -168,7 +168,19 @@ const getAllProjects = async (filters = {}) => {
 const getMyProjects = async (studentId, filters = {}) => {
   const { search, page = 1, limit = 10 } = filters;
 
-  const projectWhereClause = { status: 'visible' };
+  // Récupérer l'étudiant et sa promotion
+  const student = await User.findByPk(studentId, {
+    attributes: ['id', 'promotionId']
+  });
+
+  if (!student || !student.promotionId) {
+    throw new AppError('Student not found or not assigned to a promotion', 404);
+  }
+
+  const projectWhereClause = {
+    status: 'visible',
+    promotionId: student.promotionId
+  };
 
   if (search) {
     projectWhereClause[Op.or] = [
@@ -177,61 +189,66 @@ const getMyProjects = async (studentId, filters = {}) => {
     ];
   }
 
-  const { count, rows: groups } = await Group.findAndCountAll({
+  const { count, rows: projects } = await Project.findAndCountAll({
+    where: projectWhereClause,
     include: [
       {
         model: User,
-        as: 'members',
-        where: { id: studentId },
-        attributes: []
+        as: 'teacher',
+        attributes: ['id', 'firstName', 'lastName', 'email']
       },
       {
-        model: Project,
-        as: 'project',
-        where: projectWhereClause,
+        model: Promotion,
+        as: 'promotion',
+        attributes: ['id', 'name', 'year']
+      },
+      {
+        model: Deliverable,
+        as: 'deliverables',
+        attributes: ['id', 'name', 'description', 'deadline', 'type']
+      },
+      {
+        model: Group,
+        as: 'groups',
         include: [
           {
             model: User,
-            as: 'teacher',
-            attributes: ['id', 'firstName', 'lastName', 'email']
-          },
-          {
-            model: Promotion,
-            as: 'promotion',
-            attributes: ['id', 'name', 'year']
-          },
-          {
-            model: Deliverable,
-            as: 'deliverables',
-            attributes: ['id', 'name', 'description', 'deadline', 'type']
+            as: 'members',
+            where: { id: studentId },
+            required: false,
+            attributes: ['id']
           }
-        ]
+        ],
+        required: false
       }
     ],
     offset: (page - 1) * limit,
     limit,
+    order: [['createdAt', 'DESC']]
   });
 
-  const projectsMap = new Map();
+  const projectsWithGroupInfo = projects.map(project => {
+    const projectData = project.toJSON();
 
-  groups.forEach(group => {
-    if (group.project && !projectsMap.has(group.project.id)) {
-      projectsMap.set(group.project.id, {
-        ...group.project.toJSON(),
-        myGroup: {
-          id: group.id,
-          name: group.name
-        }
-      });
+    // Trouver le groupe où l'étudiant est membre
+    const myGroup = project.groups?.find(group =>
+      group.members && group.members.some(member => member.id === studentId)
+    );
+
+    if (myGroup) {
+      projectData.myGroup = {
+        id: myGroup.id,
+        name: myGroup.name
+      };
     }
-  });
 
-  const projects = Array.from(projectsMap.values()).sort((a, b) => {
-    return new Date(b.createdAt) - new Date(a.createdAt);
+    delete projectData.groups;
+
+    return projectData;
   });
 
   return {
-    projects: projects,
+    projects: projectsWithGroupInfo,
     totalItems: count,
     totalPages: Math.ceil(count / limit),
     currentPage: parseInt(page)
