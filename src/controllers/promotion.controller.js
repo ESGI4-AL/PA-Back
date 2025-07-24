@@ -31,7 +31,7 @@ const getAllPromotions = asyncHandler(async (req, res) => {
     year: req.query.year,
     search: req.query.search,
     page: parseInt(req.query.page) || 1,
-    limit: parseInt(req.query.limit) || 10
+    limit: parseInt(req.query.limit) || 100
   };
 
   const result = await promotionService.getAllPromotions(filters);
@@ -163,7 +163,7 @@ const getPromotionStudents = asyncHandler(async (req, res) => {
     search: req.query.search,
     isActive: req.query.isActive === 'true',
     page: parseInt(req.query.page) || 1,
-    limit: parseInt(req.query.limit) || 10
+    limit: parseInt(req.query.limit) || 100
   };
 
   const result = await promotionService.getPromotionStudents(id, filters);

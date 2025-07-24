@@ -48,7 +48,7 @@ const getAllProjects = asyncHandler(async (req, res) => {
     status: req.query.status,
     search: req.query.search,
     page: parseInt(req.query.page) || 1,
-    limit: parseInt(req.query.limit) || 10
+    limit: parseInt(req.query.limit) || 100
   };
 
   const result = await projectService.getAllProjects(filters);
@@ -68,7 +68,7 @@ const getMyProjects = asyncHandler(async (req, res) => {
     status: req.query.status,
     search: req.query.search,
     page: parseInt(req.query.page) || 1,
-    limit: parseInt(req.query.limit) || 10
+    limit: parseInt(req.query.limit) || 100
   };
 
   const result = await projectService.getMyProjects(studentId, filters);

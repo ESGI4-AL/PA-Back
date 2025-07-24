@@ -3,9 +3,9 @@ const { asyncHandler } = require('../middlewares/error.middleware');
 
 const createUser = asyncHandler(async (req, res) => {
   const userData = req.body;
-  
+
   const user = await userService.createUser(userData);
-  
+
   res.status(201).json({
     status: 'success',
     message: 'User created successfully',
@@ -16,9 +16,9 @@ const createUser = asyncHandler(async (req, res) => {
 const importUsers = asyncHandler(async (req, res) => {
   const { promotionId } = req.params;
   const { usersList } = req.body;
-  
+
   const result = await userService.importUsers(usersList, promotionId);
-  
+
   res.status(200).json({
     status: 'success',
     message: `${result.created.length} users created, ${result.updated.length} users updated, ${result.failed.length} users failed`,
@@ -28,9 +28,9 @@ const importUsers = asyncHandler(async (req, res) => {
 
 const getUserById = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  
+
   const user = await userService.getUserById(id);
-  
+
   res.status(200).json({
     status: 'success',
     data: user
@@ -43,11 +43,11 @@ const getAllUsers = asyncHandler(async (req, res) => {
     promotionId: req.query.promotionId,
     search: req.query.search,
     page: parseInt(req.query.page) || 1,
-    limit: parseInt(req.query.limit) || 10
+    limit: parseInt(req.query.limit) || 100
   };
-  
+
   const result = await userService.getAllUsers(filters);
-  
+
   res.status(200).json({
     status: 'success',
     data: result
@@ -56,9 +56,9 @@ const getAllUsers = asyncHandler(async (req, res) => {
 
 const getUserProjects = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  
+
   const projects = await userService.getUserProjects(id);
-  
+
   res.status(200).json({
     status: 'success',
     data: projects
@@ -68,9 +68,9 @@ const getUserProjects = asyncHandler(async (req, res) => {
 const updateUser = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const updateData = req.body;
-  
+
   const user = await userService.updateUser(id, updateData);
-  
+
   res.status(200).json({
     status: 'success',
     message: 'User updated successfully',
@@ -80,9 +80,9 @@ const updateUser = asyncHandler(async (req, res) => {
 
 const deactivateUser = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  
+
   const result = await userService.deactivateUser(id);
-  
+
   res.status(200).json({
     status: 'success',
     message: result.message
@@ -91,9 +91,9 @@ const deactivateUser = asyncHandler(async (req, res) => {
 
 const activateUser = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  
+
   const result = await userService.activateUser(id);
-  
+
   res.status(200).json({
     status: 'success',
     message: result.message
@@ -103,9 +103,9 @@ const activateUser = asyncHandler(async (req, res) => {
 const changePassword = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { currentPassword, newPassword } = req.body;
-  
+
   const result = await userService.changePassword(id, currentPassword, newPassword);
-  
+
   res.status(200).json({
     status: 'success',
     message: result.message
@@ -114,9 +114,9 @@ const changePassword = asyncHandler(async (req, res) => {
 
 const resetUserPassword = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  
+
   const result = await userService.resetUserPassword(id);
-  
+
   res.status(200).json({
     status: 'success',
     message: result.message,
@@ -128,9 +128,9 @@ const resetUserPassword = asyncHandler(async (req, res) => {
 
 const getStudentGrades = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  
+
   const grades = await userService.getStudentGrades(id);
-  
+
   res.status(200).json({
     status: 'success',
     data: grades
