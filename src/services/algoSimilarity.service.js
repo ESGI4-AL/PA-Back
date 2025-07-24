@@ -20,7 +20,7 @@ const getFirebasePathFromUrl = (firebaseUrl) => {
 
 //config= commentaire a garder lors du clean code, important, en francais expres pour me retrouver
 const MAX_FILE_SIZE = 10 * 1024 * 1024; //10MB
-const SIMILARITY_THRESHOLD = 0.8;//seuil de suspicion
+const SIMILARITY_THRESHOLD = 0.6;//seuil de suspicion
 
 //Télécharge un fichier depuis Firebase Storage
 const downloadFile = async (filePath) => {
